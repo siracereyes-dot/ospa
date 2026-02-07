@@ -20,6 +20,7 @@ const NCR_DIVISIONS = [
   "Quezon City", "San Juan", "Taguig City and Pateros (TAPAT)", "Valenzuela"
 ];
 
+// NOTE: User must replace this with their actual deployed Google Apps Script URL
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyar3ji86tD3WubBdAq8aR_zFp-gkzhcyYFtayBuTdFZpoCxpZmyR-7B5Wpbg_9M20D/exec";
 
 const INITIAL_STATE: OSPAScoreState = {
@@ -156,43 +157,45 @@ const App: React.FC = () => {
     if (!isFormValid) {
       setShowValidationErrors(true);
       setActiveTab('basic');
-      alert("⚠️ Missing Data: Profile details and PDF Portfolio are required for official search records.");
+      alert("⚠️ Missing Data: Division, School, Candidate Name, and PDF Portfolio are mandatory.");
       return;
     }
 
     setIsSubmitting(true);
-    setSubmissionStep('Compressing Portfolio...');
+    setSubmissionStep('Preparing Data...');
     
-    await new Promise(r => setTimeout(r, 800)); // Visual beat for compression
-    
-    setSubmissionStep('Syncing with Cloud...');
-
-    const sanitizedName = data.candidateName.replace(/\s+/g, '_').replace(/[^\w]/g, '');
-    const sanitizedSchool = data.schoolName.replace(/\s+/g, '_').replace(/[^\w]/g, '');
-    const finalFileName = `${data.division}_${sanitizedSchool}_${sanitizedName}.pdf`;
-    
-    const payload = {
-      timestamp: new Date().toLocaleString(),
-      candidateName: data.candidateName,
-      division: data.division,
-      schoolName: data.schoolName,
-      averageRating: averageRating.toFixed(3),
-      grandTotal: totals.grandTotal.toFixed(2),
-      details: {
-        journalism: (totals.indiv + totals.group + totals.special + totals.pub).toFixed(2),
-        leadership: totals.leadershipTotal.toFixed(2),
-        extensions: (totals.extension + totals.innovations + totals.speakership + totals.books + totals.articles).toFixed(2),
-        interview: totals.interviewTotal.toFixed(2)
-      },
-      movFile: data.movFile ? {
-        data: data.movFile.data,
-        name: finalFileName,
-        mimeType: "application/pdf"
-      } : null
-    };
-
     try {
-      // GAS Web Apps with no-cors usually don't throw error on 404/500
+      await new Promise(r => setTimeout(r, 600));
+      setSubmissionStep('Encoding Portfolio...');
+      
+      const sanitizedName = data.candidateName.replace(/\s+/g, '_').replace(/[^\w]/g, '');
+      const sanitizedSchool = data.schoolName.replace(/\s+/g, '_').replace(/[^\w]/g, '');
+      const finalFileName = `${data.division}_${sanitizedSchool}_${sanitizedName}_OSPA.pdf`;
+      
+      const payload = {
+        timestamp: new Date().toLocaleString(),
+        candidateName: data.candidateName,
+        division: data.division,
+        schoolName: data.schoolName,
+        averageRating: averageRating.toFixed(3),
+        grandTotal: totals.grandTotal.toFixed(2),
+        details: {
+          journalism: (totals.indiv + totals.group + totals.special + totals.pub).toFixed(2),
+          leadership: totals.leadershipTotal.toFixed(2),
+          extensions: (totals.extension + totals.innovations + totals.speakership + totals.books + totals.articles).toFixed(2),
+          interview: totals.interviewTotal.toFixed(2)
+        },
+        movFile: data.movFile ? {
+          data: data.movFile.data,
+          name: finalFileName,
+          mimeType: "application/pdf"
+        } : null
+      };
+
+      setSubmissionStep('Connecting to Google Cloud...');
+      
+      // We use no-cors because Google Apps Script redirects usually cause CORS errors on regular fetch.
+      // However, no-cors means we can't see the response body.
       await fetch(SCRIPT_URL, {
         method: "POST",
         mode: "no-cors",
@@ -200,14 +203,14 @@ const App: React.FC = () => {
         body: JSON.stringify(payload)
       });
       
-      setSubmissionStep('Finalizing Receipt...');
-      await new Promise(r => setTimeout(r, 1200));
+      setSubmissionStep('Verifying Transmission...');
+      await new Promise(r => setTimeout(r, 1500));
 
-      alert(`✅ TRANSMISSION COMPLETE!\n\nNominee: ${data.candidateName}\n\nYour scores have been sent to the Master Sheet. If your PDF does not appear in the Drive folder within 1 minute, please verify your FOLDER_ID and verify that you ran the 'authorizeMe' function in your Apps Script.`);
+      alert(`✅ TRANSMISSION COMPLETE!\n\nNominee: ${data.candidateName}\n\nSync initiated with Google Cloud. If the portfolio doesn't appear in your Drive, please ensure:\n1. FOLDER_ID is correct in the script.\n2. You have executed 'authorizeMe' in the Apps Script editor.\n3. The folder has 'Anyone with link can Edit' permissions.`);
       setShowValidationErrors(false);
     } catch (error: any) {
       console.error("Submission Error:", error);
-      alert("❌ NETWORK ERROR: Unable to reach the Google Cloud script. Please check your SCRIPT_URL or internet connection.");
+      alert(`❌ UPLOAD FAILED: ${error.message || 'Network error'}\n\nPlease check your SCRIPT_URL and internet connection.`);
     } finally {
       setIsSubmitting(false);
       setSubmissionStep('');
@@ -617,8 +620,8 @@ const App: React.FC = () => {
                      <button 
                        onClick={() => {
                           const lvl = (document.getElementById('lead-lvl') as HTMLSelectElement).value as Level;
-                          const pos = (document.getElementById('lead-pos') as HTMLSelectElement).value as Position;
-                          addItem('leadership', { level: lvl, position: pos });
+                          const rnk = (document.getElementById('lead-pos') as HTMLSelectElement).value as Position;
+                          addItem('leadership', { level: lvl, position: rnk });
                        }}
                        className="w-full py-6 bg-white text-slate-900 rounded-3xl font-black text-[12px] uppercase tracking-widest hover:bg-indigo-400 hover:text-white transition-all shadow-2xl neo-button"
                      >
@@ -743,7 +746,7 @@ const App: React.FC = () => {
                         <i className="fas fa-user-shield"></i> 2. Authorization
                     </h3>
                     <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                        Paste the code below into Apps Script. Select <b>'authorizeMe'</b> and click <b>Run</b>. Complete the Google security dialog (Advanced -> Go to unsafe).
+                        Paste the code below into Apps Script. Select <b>'authorizeMe'</b> and click <b>Run</b>. Complete the Google security dialog (Advanced -&gt; Go to unsafe).
                     </p>
                  </div>
                  <div className="p-10 bg-blue-500/5 border border-blue-500/10 rounded-[3rem] space-y-6">
@@ -751,7 +754,7 @@ const App: React.FC = () => {
                         <i className="fas fa-rocket"></i> 3. Deployment
                     </h3>
                     <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                        Click <b>Deploy > New Deployment</b>. Set Type to "Web App", Execute as "Me", and Access to "Anyone". Paste the URL in the <b>SCRIPT_URL</b> variable in App.tsx.
+                        Click <b>Deploy &gt; New Deployment</b>. Set Type to "Web App", Execute as "Me", and Access to "Anyone". Paste the URL in the <b>SCRIPT_URL</b> variable in App.tsx.
                     </p>
                  </div>
               </div>
