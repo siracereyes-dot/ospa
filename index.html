@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12,52 +11,57 @@
         
         :root {
             --primary: #6366f1;
-            --primary-dark: #4f46e5;
+            --primary-glow: rgba(99, 102, 241, 0.5);
             --accent: #10b981;
-            --surface: rgba(255, 255, 255, 0.9);
+            --surface: rgba(15, 23, 42, 0.8);
+            --glass-border: rgba(255, 255, 255, 0.08);
         }
 
         body { 
           font-family: 'Plus Jakarta Sans', sans-serif; 
-          background-color: #0f172a;
+          background-color: #020617;
           background-image: 
-            radial-gradient(at 0% 0%, hsla(253,16%,15%,1) 0, transparent 50%), 
-            radial-gradient(at 100% 0%, hsla(225,39%,20%,1) 0, transparent 50%), 
-            radial-gradient(at 50% 100%, hsla(250,50%,15%,1) 0, transparent 50%);
+            radial-gradient(at 0% 0%, rgba(30, 27, 75, 0.5) 0, transparent 40%), 
+            radial-gradient(at 100% 0%, rgba(15, 23, 42, 0.5) 0, transparent 40%), 
+            radial-gradient(at 50% 100%, rgba(17, 24, 39, 0.8) 0, transparent 50%);
           background-attachment: fixed;
           color: #f8fafc;
           min-height: 100vh;
         }
 
         .glass-panel {
-            background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(32px);
+            -webkit-backdrop-filter: blur(32px);
+            border: 1px solid var(--glass-border);
         }
 
         .glass-card {
-            background: rgba(30, 41, 59, 0.4);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: rgba(30, 41, 59, 0.3);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
         .glass-card:hover {
-            transform: translateY(-4px);
-            background: rgba(30, 41, 59, 0.6);
-            border-color: rgba(99, 102, 241, 0.3);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            background: rgba(30, 41, 59, 0.5);
+            border-color: rgba(99, 102, 241, 0.4);
+            box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.6), 0 0 20px rgba(99, 102, 241, 0.1);
         }
 
         .dashboard-sidebar {
-            background: rgba(15, 23, 42, 0.8);
-            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(2, 6, 23, 0.6);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid var(--glass-border);
         }
 
         h1, h2, h3, .font-heading {
             font-family: 'Outfit', sans-serif;
-            letter-spacing: -0.02em;
+            letter-spacing: -0.03em;
+        }
+
+        .tabular-nums {
+            font-family: 'JetBrains Mono', monospace;
         }
 
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -69,56 +73,61 @@
         }
         input[type="range"]::-webkit-slider-runnable-track {
           width: 100%;
-          height: 6px;
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 10px;
+          height: 8px;
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 20px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
         }
         input[type="range"]::-webkit-slider-thumb {
           -webkit-appearance: none;
-          height: 20px;
-          width: 20px;
+          height: 24px;
+          width: 24px;
           border-radius: 50%;
-          background: #6366f1;
-          margin-top: -7px;
+          background: #ffffff;
+          margin-top: -9px;
           cursor: pointer;
-          box-shadow: 0 0 20px rgba(99, 102, 241, 0.6);
-          border: 2px solid white;
+          box-shadow: 0 0 25px var(--primary-glow);
+          border: 4px solid var(--primary);
+          transition: transform 0.2s ease;
+        }
+        input[type="range"]:active::-webkit-slider-thumb {
+            transform: scale(1.2);
         }
 
-        .animate-shimmer {
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
-          background-size: 200% 100%;
-          animation: shimmer 3s infinite linear;
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 15px rgba(99, 102, 241, 0.2); }
+            50% { box-shadow: 0 0 30px rgba(99, 102, 241, 0.4); }
         }
-        
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
+
+        .status-pulse {
+            animation: pulse-glow 3s infinite ease-in-out;
         }
 
         .neo-button {
             position: relative;
             overflow: hidden;
-            transition: all 0.3s ease;
-        }
-        .neo-button::after {
-            content: '';
-            position: absolute;
-            top: 0; left: -100%;
-            width: 100%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
-            transition: 0.5s;
-        }
-        .neo-button:hover::after {
-            left: 100%;
-        }
-
-        .tab-indicator {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
         
+        .neo-button::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
+        }
+        
+        .neo-button:hover::before {
+            transform: translateX(100%);
+        }
+
         select, input {
             color-scheme: dark;
+        }
+
+        ::placeholder {
+            color: rgba(148, 163, 184, 0.4);
         }
     </style>
 <script type="importmap">
