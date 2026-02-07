@@ -23,6 +23,26 @@ export enum Position {
   OTHER = 'Other positions'
 }
 
+export enum PublicationPosition {
+  EIC = 'Editor in Chief',
+  ASSOC = 'Associate Editor',
+  SECTION = 'Section Editor',
+  WRITER = 'Writer/Contributor/Others'
+}
+
+export enum AcademicRank {
+  HIGHEST = 'With Highest Honors',
+  HIGH = 'With High Honors',
+  HONORS = 'With Honors',
+  AVERAGE = '89-85 Average',
+  NONE = 'None'
+}
+
+export enum NominationType {
+  ADVISER = 'Outstanding School Paper Adviser',
+  JOURNALIST = 'Outstanding Campus Journalist'
+}
+
 export interface RatingEntry {
   year: string;
   score: number;
@@ -64,20 +84,30 @@ export interface MOVFile {
 }
 
 export interface OSPAScoreState {
+  nominationType: NominationType;
   candidateName: string;
   division: string;
   schoolName: string;
   movFile: MOVFile | null;
-  performanceRatings: RatingEntry[];
+  // Shared but logic differs
+  performanceRatings: RatingEntry[]; // Used as Mean for Adviser, not used for Journalist (Journalist uses AcademicRank)
+  academicRank: AcademicRank; 
   individualContests: Achievement[];
   groupContests: Achievement[];
   specialAwards: Achievement[];
   publicationContests: Achievement[];
-  leadership: LeadershipEntry[];
-  extensionServices: ServiceEntry[];
+  // Journalist specific leadership
+  pubPosition: PublicationPosition;
+  leadership: LeadershipEntry[]; // Guild Leadership
   innovations: ServiceEntry[];
+  // Journalist specific others
+  extensionServices: ServiceEntry[];
+  publishedWorks: ServiceEntry[];
+  trainingsAttended: ServiceEntry[];
+  // Shared
+  interview: InterviewScores;
+  // Adviser specific
   speakership: ServiceEntry[];
   publishedBooks: ServiceEntry[];
   publishedArticles: ServiceEntry[];
-  interview: InterviewScores;
 }
