@@ -20,7 +20,7 @@ const NCR_DIVISIONS = [
   "Quezon City", "San Juan", "Taguig City and Pateros (TAPAT)", "Valenzuela"
 ];
 
-// This script URL MUST be from your Google Apps Script "Deploy > New Deployment > Web App"
+// IMPORTANT: Paste your NEW Deployment URL here after updating Code.gs
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwHlgnvlzqFfvMxy02xY_gor93x8rzZEBB0LUjEJfD3rr5Qj_5c2t5irOvzg8gUA7oN/exec";
 
 const INITIAL_STATE: OSPAScoreState = {
@@ -132,17 +132,10 @@ const App: React.FC = () => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     if (file.type !== 'application/pdf') {
       alert("Please upload a PDF document.");
       return;
     }
-
-    if (file.size > 25 * 1024 * 1024) { // 25MB safety cap
-      alert("File is too large (max 25MB).");
-      return;
-    }
-
     const reader = new FileReader();
     reader.onload = () => {
       const base64String = (reader.result as string).split(',')[1];
@@ -162,12 +155,11 @@ const App: React.FC = () => {
     if (!isFormValid) {
       setShowValidationErrors(true);
       setActiveTab('basic');
-      alert("Missing information. Please complete the nominee profile (Division, School, Name) and upload the MOV PDF.");
+      alert("Please complete the Profile and upload the MOV PDF.");
       return;
     }
 
     setIsSubmitting(true);
-
     const sanitizedName = data.candidateName.replace(/\s+/g, '_').replace(/[^\w]/g, '');
     const sanitizedSchool = data.schoolName.replace(/\s+/g, '_').replace(/[^\w]/g, '');
     const finalFileName = `${data.division}_${sanitizedSchool}_${sanitizedName}.pdf`;
@@ -197,12 +189,11 @@ const App: React.FC = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
-      alert(`Success! Record saved for ${data.candidateName}.\nThe PDF was uploaded to the Drive folder.`);
+      alert(`Saved! Nominee: ${data.candidateName}\nPDF uploaded to Drive.`);
       setShowValidationErrors(false);
     } catch (error) {
-      console.error("Save error:", error);
-      alert("An error occurred while saving. Please ensure your Google Script is deployed correctly.");
+      console.error(error);
+      alert("Error saving. Please verify your Google Script deployment.");
     } finally {
       setIsSubmitting(false);
     }
@@ -223,81 +214,92 @@ const App: React.FC = () => {
   };
 
   const renderSectionHeader = (title: string, icon: string, value: string, color: string) => (
-    <div className="flex justify-between items-center mb-8">
-      <div className="flex items-center gap-4">
-        <div className={`w-12 h-12 ${color} bg-opacity-10 ${color.replace('bg-', 'text-')} rounded-2xl flex items-center justify-center text-xl`}>
+    <div className="flex justify-between items-center mb-10">
+      <div className="flex items-center gap-5">
+        <div className={`w-14 h-14 ${color} bg-opacity-10 ${color.replace('bg-', 'text-')} rounded-2xl flex items-center justify-center text-2xl`}>
           <i className={`fas ${icon}`}></i>
         </div>
-        <h3 className="text-2xl font-bold text-slate-800 tracking-tight">{title}</h3>
+        <div>
+          <h3 className="text-2xl font-black text-slate-800 tracking-tight">{title}</h3>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Evaluation Component</p>
+        </div>
       </div>
       <div className="text-right">
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Section Points</span>
-        <span className="text-3xl font-black text-slate-900 tabular-nums">{value}</span>
+        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Score Contribution</span>
+        <span className="text-4xl font-black text-slate-900 tabular-nums tracking-tighter">{value}</span>
       </div>
     </div>
   );
 
   const renderAchievementSection = (title: string, category: keyof OSPAScoreState, ranks: Rank[], levels: Level[]) => {
-    const getWeightedValue = (cat: string) => {
-      switch(cat) {
-        case 'individualContests': return totals.indiv;
-        case 'groupContests': return totals.group;
-        case 'specialAwards': return totals.special;
-        case 'publicationContests': return totals.pub;
-        default: return 0;
-      }
+    const getVal = () => {
+      if(category === 'individualContests') return totals.indiv;
+      if(category === 'groupContests') return totals.group;
+      if(category === 'specialAwards') return totals.special;
+      if(category === 'publicationContests') return totals.pub;
+      return 0;
     };
-
     return (
-      <div className="elegant-card p-8 rounded-[2rem] overflow-hidden">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-lg font-bold text-slate-800 tracking-tight">{title}</h3>
-          <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-xl text-[10px] font-bold uppercase tracking-widest">
-            Weighted: {getWeightedValue(category).toFixed(2)}
+      <div className="elegant-card p-10 rounded-[2.5rem] mb-8">
+        <div className="flex justify-between items-center mb-8">
+          <h3 className="text-xl font-black text-slate-800 tracking-tight">{title}</h3>
+          <span className="bg-indigo-50 text-indigo-600 px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest">
+            Section: {getVal().toFixed(2)}
           </span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-8">
-          <select id={`${category}-lvl`} className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none focus:ring-4 focus:ring-indigo-50">
-            {levels.map(l => <option key={l} value={l}>{l}</option>)}
-          </select>
-          <select id={`${category}-rnk`} className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none focus:ring-4 focus:ring-indigo-50">
-            {ranks.map(r => <option key={r} value={r}>{r}</option>)}
-          </select>
-          <input id={`${category}-yr`} type="text" placeholder="Year" className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none focus:ring-4 focus:ring-indigo-50" />
-          <button 
-            onClick={() => {
-               const lvl = (document.getElementById(`${category}-lvl`) as HTMLSelectElement).value as Level;
-               const rnk = (document.getElementById(`${category}-rnk`) as HTMLSelectElement).value as Rank;
-               const yr = (document.getElementById(`${category}-yr`) as HTMLInputElement).value;
-               if (yr) {
-                 addItem(category, { level: lvl, rank: rnk, year: yr });
-                 (document.getElementById(`${category}-yr`) as HTMLInputElement).value = '';
-               }
-            }}
-            className="bg-slate-900 text-white px-4 py-3 rounded-xl hover:bg-black transition-all font-bold text-[10px] uppercase tracking-widest"
-          >
-            Add Record
-          </button>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 bg-slate-50/50 p-8 rounded-3xl border border-slate-100">
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">Level</label>
+            <select id={`${category}-lvl`} className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-[11px] font-black outline-none focus:ring-4 focus:ring-indigo-50">
+              {levels.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">Rank</label>
+            <select id={`${category}-rnk`} className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-[11px] font-black outline-none focus:ring-4 focus:ring-indigo-50">
+              {ranks.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">SY / Year</label>
+            <input id={`${category}-yr`} type="text" placeholder="e.g. 2024" className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-[11px] font-black outline-none focus:ring-4 focus:ring-indigo-50" />
+          </div>
+          <div className="flex items-end">
+            <button 
+              onClick={() => {
+                 const lvl = (document.getElementById(`${category}-lvl`) as HTMLSelectElement).value as Level;
+                 const rnk = (document.getElementById(`${category}-rnk`) as HTMLSelectElement).value as Rank;
+                 const yr = (document.getElementById(`${category}-yr`) as HTMLInputElement).value;
+                 if (yr) {
+                   addItem(category, { level: lvl, rank: rnk, year: yr });
+                   (document.getElementById(`${category}-yr`) as HTMLInputElement).value = '';
+                 }
+              }}
+              className="w-full bg-slate-900 text-white p-4 rounded-2xl hover:bg-black transition-all font-black text-[10px] uppercase tracking-widest"
+            >
+              Add Award
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-slate-50 text-slate-400 text-[9px] font-bold uppercase tracking-widest">
-                <th className="py-3 px-2">Level</th>
-                <th className="py-3 px-2">Rank</th>
-                <th className="py-3 px-2">Year</th>
-                <th className="py-3 px-2 text-right">Action</th>
+                <th className="py-4 px-2">Level</th>
+                <th className="py-4 px-2">Rank</th>
+                <th className="py-4 px-2">Year</th>
+                <th className="py-4 px-2 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {(data[category] as Achievement[]).map(item => (
-                <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-4 px-2 text-[11px] font-bold text-slate-600">{item.level}</td>
-                  <td className="py-4 px-2 text-[11px] font-bold text-slate-600">{item.rank}</td>
-                  <td className="py-4 px-2 text-[11px] font-bold text-slate-600">{item.year}</td>
-                  <td className="py-4 px-2 text-right">
-                    <button onClick={() => removeItem(category, item.id)} className="w-8 h-8 rounded-lg text-red-300 hover:text-red-500 hover:bg-red-50 transition-all">
-                      <i className="fas fa-trash-alt text-xs"></i>
+                <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="py-5 px-2 text-[11px] font-black text-slate-700">{item.level}</td>
+                  <td className="py-5 px-2 text-[11px] font-black text-slate-700">{item.rank}</td>
+                  <td className="py-5 px-2 text-[11px] font-black text-slate-700">{item.year}</td>
+                  <td className="py-5 px-2 text-right">
+                    <button onClick={() => removeItem(category, item.id)} className="w-10 h-10 rounded-2xl text-red-300 hover:text-red-500 hover:bg-red-50 transition-all">
+                      <i className="fas fa-trash-alt text-sm"></i>
                     </button>
                   </td>
                 </tr>
@@ -310,54 +312,56 @@ const App: React.FC = () => {
   };
 
   const renderServiceSection = (title: string, category: keyof OSPAScoreState, levels: Level[]) => {
-    const getWeightedValue = (cat: string) => {
-      switch(cat) {
-        case 'extensionServices': return totals.extension;
-        case 'innovations': return totals.innovations;
-        case 'speakership': return totals.speakership;
-        case 'publishedBooks': return totals.books;
-        case 'publishedArticles': return totals.articles;
-        default: return 0;
-      }
+    const getVal = () => {
+      if(category === 'extensionServices') return totals.extension;
+      if(category === 'innovations') return totals.innovations;
+      if(category === 'speakership') return totals.speakership;
+      if(category === 'publishedBooks') return totals.books;
+      if(category === 'publishedArticles') return totals.articles;
+      return 0;
     };
-
     return (
-      <div className="elegant-card p-8 rounded-[2rem]">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-lg font-bold text-slate-800 tracking-tight">{title}</h3>
-          <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-xl text-[10px] font-bold uppercase tracking-widest">
-            Weighted: {getWeightedValue(category).toFixed(2)}
+      <div className="elegant-card p-10 rounded-[2.5rem] mb-8">
+        <div className="flex justify-between items-center mb-8">
+          <h3 className="text-xl font-black text-slate-800 tracking-tight">{title}</h3>
+          <span className="bg-emerald-50 text-emerald-600 px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest">
+            Section: {getVal().toFixed(2)}
           </span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-          <select id={`${category}-slvl`} className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none">
-            {levels.map(l => <option key={l} value={l}>{l}</option>)}
-          </select>
-          <button 
-            onClick={() => {
-               const lvl = (document.getElementById(`${category}-slvl`) as HTMLSelectElement).value as Level;
-               addItem(category, { level: lvl });
-            }}
-            className="bg-slate-900 text-white px-4 py-3 rounded-xl hover:bg-black transition-all font-bold text-[10px] uppercase tracking-widest col-span-2"
-          >
-            Add Service
-          </button>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 bg-slate-50/50 p-8 rounded-3xl border border-slate-100">
+          <div className="md:col-span-2 space-y-1">
+            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">Service Level</label>
+            <select id={`${category}-slvl`} className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-[11px] font-black outline-none">
+              {levels.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button 
+              onClick={() => {
+                 const lvl = (document.getElementById(`${category}-slvl`) as HTMLSelectElement).value as Level;
+                 addItem(category, { level: lvl });
+              }}
+              className="w-full bg-slate-900 text-white p-4 rounded-2xl hover:bg-black transition-all font-black text-[10px] uppercase tracking-widest shadow-xl shadow-slate-100"
+            >
+              Add Service
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-slate-50 text-slate-400 text-[9px] font-bold uppercase tracking-widest">
-                <th className="py-3 px-2">Level</th>
-                <th className="py-3 px-2 text-right">Action</th>
+                <th className="py-4 px-2">Service Level</th>
+                <th className="py-4 px-2 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {(data[category] as ServiceEntry[]).map(item => (
-                <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-4 px-2 text-[11px] font-bold text-slate-600">{item.level}</td>
-                  <td className="py-4 px-2 text-right">
-                    <button onClick={() => removeItem(category, item.id)} className="w-8 h-8 rounded-lg text-red-300 hover:text-red-500 hover:bg-red-50 transition-all">
-                      <i className="fas fa-trash-alt text-xs"></i>
+                <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="py-5 px-2 text-[11px] font-black text-slate-700">{item.level}</td>
+                  <td className="py-5 px-2 text-right">
+                    <button onClick={() => removeItem(category, item.id)} className="w-10 h-10 rounded-2xl text-red-300 hover:text-red-500 hover:bg-red-50 transition-all">
+                      <i className="fas fa-trash-alt text-sm"></i>
                     </button>
                   </td>
                 </tr>
@@ -370,27 +374,27 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen pb-12">
-      <header className="bg-white/70 backdrop-blur-xl border-b border-slate-100 sticky top-0 z-[100] h-20">
+    <div className="min-h-screen pb-12 bg-slate-50/30">
+      <header className="bg-white/70 backdrop-blur-2xl border-b border-slate-100 sticky top-0 z-[100] h-20 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white text-lg shadow-lg shadow-indigo-200">
+          <div className="flex items-center gap-5">
+            <div className="w-11 h-11 bg-indigo-600 rounded-2xl flex items-center justify-center text-white text-xl shadow-xl shadow-indigo-100">
               <i className="fas fa-feather"></i>
             </div>
             <div>
-              <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none">OSPA <span className="text-indigo-600">SCORER</span></h1>
-              <p className="text-[9px] text-slate-400 font-bold tracking-widest uppercase mt-1">Professional Evaluation Suite</p>
+              <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none uppercase">OSPA <span className="text-indigo-600">Scorer</span></h1>
+              <p className="text-[9px] text-slate-400 font-bold tracking-[0.2em] uppercase mt-1">Outstanding School Paper Adviser</p>
             </div>
           </div>
-          <div className="hidden md:flex items-center gap-10">
+          <div className="hidden md:flex items-center gap-12">
             <div className="text-right">
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Final Computation</p>
-              <p className="text-3xl font-black text-indigo-600 tabular-nums leading-none">{totals.grandTotal.toFixed(2)}</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Final Score</p>
+              <p className="text-4xl font-black text-indigo-600 tabular-nums leading-none tracking-tighter">{totals.grandTotal.toFixed(2)}</p>
             </div>
             <button 
               onClick={handleSave}
               disabled={isSubmitting}
-              className={`px-8 py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-3 ${isSubmitting ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-black hover:scale-[1.02] active:scale-95 shadow-xl shadow-slate-200'}`}
+              className={`px-12 py-4 rounded-[1.25rem] font-black text-xs uppercase tracking-widest transition-all flex items-center gap-3 ${isSubmitting ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-black hover:scale-[1.02] active:scale-95 shadow-2xl shadow-slate-200'}`}
             >
               {isSubmitting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-save"></i>}
               {isSubmitting ? 'Saving...' : 'Save Record'}
@@ -399,56 +403,65 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 mt-10 grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <main className="max-w-7xl mx-auto px-6 mt-12 grid grid-cols-1 lg:grid-cols-12 gap-12">
         <aside className="lg:col-span-3">
-          <div className="bg-white rounded-3xl p-6 border border-slate-100 sticky top-28 space-y-8">
+          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 sticky top-32 space-y-10 shadow-sm">
             <div className="space-y-6">
-              <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-7 bg-indigo-600 rounded-full"></div>
+                <h2 className="text-xs font-black text-slate-800 uppercase tracking-widest">Profile Details</h2>
+              </div>
+              
+              <div className="space-y-5">
                 <div>
                   <label className="text-[9px] font-bold text-slate-400 uppercase block mb-2 tracking-widest ml-1">Division</label>
                   <select 
-                    className={`w-full p-3.5 bg-slate-50 border rounded-xl text-xs font-semibold outline-none transition-all ${showValidationErrors && !data.division ? 'border-red-200 bg-red-50' : 'border-slate-100 focus:bg-white focus:ring-4 focus:ring-indigo-50'}`}
+                    className={`w-full p-4 bg-slate-50 border rounded-2xl text-[11px] font-black outline-none transition-all ${showValidationErrors && !data.division ? 'border-red-200 ring-4 ring-red-50' : 'border-slate-100 focus:bg-white focus:ring-4 focus:ring-indigo-50'}`}
                     value={data.division}
                     onChange={e => setData({...data, division: e.target.value})}
                   >
-                    <option value="">Choose...</option>
+                    <option value="">Select Division</option>
                     {NCR_DIVISIONS.map(div => <option key={div} value={div}>{div}</option>)}
                   </select>
                 </div>
+
                 <div>
                   <label className="text-[9px] font-bold text-slate-400 uppercase block mb-2 tracking-widest ml-1">School Name</label>
                   <input 
                     type="text" placeholder="Enter School Name" 
-                    className={`w-full p-3.5 bg-slate-50 border rounded-xl text-xs font-semibold outline-none transition-all ${showValidationErrors && !data.schoolName.trim() ? 'border-red-200 bg-red-50' : 'border-slate-100 focus:bg-white focus:ring-4 focus:ring-indigo-50'}`}
+                    className={`w-full p-4 bg-slate-50 border rounded-2xl text-[11px] font-black outline-none transition-all ${showValidationErrors && !data.schoolName.trim() ? 'border-red-200 ring-4 ring-red-50' : 'border-slate-100 focus:bg-white focus:ring-4 focus:ring-indigo-50'}`}
                     value={data.schoolName}
                     onChange={e => setData({...data, schoolName: e.target.value})}
                   />
                 </div>
+
                 <div>
-                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-2 tracking-widest ml-1">Nominee Full Name</label>
+                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-2 tracking-widest ml-1">Nominee Name</label>
                   <input 
-                    type="text" placeholder="Last Name, First Name" 
-                    className={`w-full p-3.5 bg-slate-50 border rounded-xl text-xs font-semibold outline-none transition-all ${showValidationErrors && !data.candidateName.trim() ? 'border-red-200 bg-red-50' : 'border-slate-100 focus:bg-white focus:ring-4 focus:ring-indigo-50'}`}
+                    type="text" placeholder="Surname, First Name" 
+                    className={`w-full p-4 bg-slate-50 border rounded-2xl text-[11px] font-black outline-none transition-all ${showValidationErrors && !data.candidateName.trim() ? 'border-red-200 ring-4 ring-red-50' : 'border-slate-100 focus:bg-white focus:ring-4 focus:ring-indigo-50'}`}
                     value={data.candidateName}
                     onChange={e => setData({...data, candidateName: e.target.value})}
                   />
                 </div>
-                <div className="pt-2">
-                  <div className={`relative border border-dashed rounded-xl p-4 text-center group cursor-pointer transition-all ${data.movFile ? 'border-emerald-200 bg-emerald-50' : (showValidationErrors && !data.movFile ? 'border-red-200 bg-red-50' : 'border-slate-200 hover:border-indigo-300 bg-slate-50')}`}>
+
+                <div>
+                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-3 tracking-widest ml-1">MOV Portfolio (PDF)</label>
+                  <div className={`relative border-2 border-dashed rounded-[1.5rem] p-6 text-center group cursor-pointer transition-all ${data.movFile ? 'border-emerald-200 bg-emerald-50' : (showValidationErrors && !data.movFile ? 'border-red-200 bg-red-50 animate-pulse' : 'border-slate-100 hover:border-indigo-300 bg-slate-50')}`}>
                     <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileUpload} />
-                    <i className={`fas ${data.movFile ? 'fa-check text-emerald-500' : 'fa-file-pdf text-slate-300'} text-2xl mb-2`}></i>
-                    <p className={`text-[9px] font-bold uppercase tracking-widest truncate ${data.movFile ? 'text-emerald-700' : 'text-slate-400'}`}>
-                      {data.movFile ? data.movFile.name : 'Upload MOV PDF'}
+                    <i className={`fas ${data.movFile ? 'fa-check-circle text-emerald-500' : 'fa-cloud-arrow-up text-slate-300'} text-3xl mb-3`}></i>
+                    <p className={`text-[9px] font-black uppercase tracking-widest truncate ${data.movFile ? 'text-emerald-700' : 'text-slate-400'}`}>
+                      {data.movFile ? data.movFile.name : 'Upload Document'}
                     </p>
                   </div>
                 </div>
               </div>
             </div>
 
-            <nav className="space-y-1.5 pt-6 border-t border-slate-50">
+            <nav className="space-y-3 pt-8 border-t border-slate-50">
               {[
-                { id: 'basic', label: 'Summary & Ratings', icon: 'fa-table-list' },
-                { id: 'contests', label: 'Journalism Awards', icon: 'fa-trophy' },
+                { id: 'basic', label: 'Dashboard', icon: 'fa-table-list' },
+                { id: 'contests', label: 'Journalism', icon: 'fa-trophy' },
                 { id: 'leadership', label: 'Leadership', icon: 'fa-user-tie' },
                 { id: 'services', label: 'Extensions', icon: 'fa-hand-holding-heart' },
                 { id: 'interview', label: 'Interview', icon: 'fa-microphone-lines' }
@@ -456,7 +469,7 @@ const App: React.FC = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-600'}`}
+                  className={`w-full flex items-center gap-5 px-6 py-4 rounded-2xl text-left text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100' : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-600'}`}
                 >
                   <i className={`fas ${tab.icon} w-5 text-center`}></i>
                   {tab.label}
@@ -466,27 +479,27 @@ const App: React.FC = () => {
           </div>
         </aside>
 
-        <section className="lg:col-span-9 space-y-8 no-scrollbar">
+        <section className="lg:col-span-9 space-y-12">
           {activeTab === 'basic' && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="elegant-card p-10 rounded-[2.5rem]">
-                <div className="flex items-center gap-5 mb-10">
-                  <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-xl">
+            <div className="space-y-10 animate-in fade-in duration-700">
+              <div className="elegant-card p-12 rounded-[3.5rem]">
+                <div className="flex items-center gap-6 mb-12">
+                  <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center text-3xl">
                     <i className="fas fa-chart-line"></i>
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-800 tracking-tight">IPCRF Rating</h2>
-                    <p className="text-slate-400 text-xs font-medium">Last five (5) rating cycles.</p>
+                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">IPCRF Performance</h2>
+                    <p className="text-slate-400 text-sm font-medium">Ratings for the last five cycles.</p>
                   </div>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   {data.performanceRatings.map((entry) => (
-                    <div key={entry.year} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 group">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">{entry.year}</label>
+                    <div key={entry.year} className="p-8 bg-slate-50 rounded-[2rem] border border-slate-100 group transition-all hover:border-indigo-200">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">{entry.year}</label>
                       <input 
                         type="number" step="0.001"
-                        className="w-full bg-transparent text-xl font-bold text-slate-800 outline-none group-focus-within:text-indigo-600"
+                        className="w-full bg-transparent text-3xl font-black text-slate-900 outline-none group-focus-within:text-indigo-600"
                         value={entry.score}
                         onChange={(e) => {
                            const val = parseFloat(e.target.value) || 0;
@@ -500,35 +513,35 @@ const App: React.FC = () => {
                   ))}
                 </div>
 
-                <div className="mt-10 p-8 bg-slate-900 rounded-3xl flex items-center justify-between text-white">
-                  <div className="flex items-center gap-6">
-                    <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-2xl">
-                      <i className="fas fa-calculator"></i>
+                <div className="mt-12 p-12 bg-slate-900 rounded-[3rem] flex items-center justify-between text-white shadow-3xl shadow-slate-200">
+                  <div className="flex items-center gap-10">
+                    <div className="w-24 h-24 bg-white/10 rounded-[2.5rem] flex items-center justify-center text-5xl">
+                      <i className="fas fa-medal"></i>
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Average Performance Rating</p>
-                      <p className="text-4xl font-black">{averageRating.toFixed(3)}</p>
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Aggregate Rating Average</p>
+                      <p className="text-7xl font-black tracking-tighter tabular-nums">{averageRating.toFixed(3)}</p>
                     </div>
                   </div>
-                  <div className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest">
+                  <div className="px-10 py-5 bg-indigo-600 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest shadow-xl">
                     {averageRating >= 4.5 ? 'Outstanding' : 'Very Satisfactory'}
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
                 {[
                   { label: 'Journalism', value: (totals.indiv + totals.group + totals.special + totals.pub).toFixed(2), icon: 'fa-feather-pointed', color: 'bg-amber-500' },
-                  { label: 'Leadership', value: totals.leadershipTotal.toFixed(2), icon: 'fa-award', color: 'bg-indigo-500' },
-                  { label: 'Extensions', value: (totals.extension + totals.innovations + totals.speakership).toFixed(2), icon: 'fa-users', color: 'bg-emerald-500' },
-                  { label: 'Interview', value: totals.interviewTotal.toFixed(2), icon: 'fa-comment', color: 'bg-blue-500' }
+                  { label: 'Leadership', value: totals.leadershipTotal.toFixed(2), icon: 'fa-shield-halved', color: 'bg-indigo-500' },
+                  { label: 'Extensions', value: (totals.extension + totals.innovations + totals.speakership).toFixed(2), icon: 'fa-handshake', color: 'bg-emerald-500' },
+                  { label: 'Interview', value: totals.interviewTotal.toFixed(2), icon: 'fa-comments', color: 'bg-blue-500' }
                 ].map((stat, i) => (
-                  <div key={i} className="elegant-card p-6 rounded-3xl transition-all hover:-translate-y-1">
-                    <div className={`w-10 h-10 ${stat.color} bg-opacity-10 ${stat.color.replace('bg-', 'text-')} rounded-xl flex items-center justify-center mb-4 text-lg`}>
+                  <div key={i} className="elegant-card p-10 rounded-[3rem] transition-all hover:-translate-y-2 group">
+                    <div className={`w-16 h-16 ${stat.color} bg-opacity-10 ${stat.color.replace('bg-', 'text-')} rounded-2xl flex items-center justify-center mb-8 text-3xl group-hover:scale-110 transition-all`}>
                       <i className={`fas ${stat.icon}`}></i>
                     </div>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
-                    <p className="text-2xl font-bold text-slate-800">{stat.value}</p>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">{stat.label}</p>
+                    <p className="text-4xl font-black text-slate-900 tracking-tight">{stat.value}</p>
                   </div>
                 ))}
               </div>
@@ -536,31 +549,32 @@ const App: React.FC = () => {
           )}
 
           {activeTab === 'contests' && (
-            <div className="space-y-8 animate-in fade-in duration-300">
-               {renderAchievementSection('1. Individual Contests', 'individualContests', [Rank.FIRST, Rank.SECOND, Rank.THIRD, Rank.FOURTH, Rank.FIFTH, Rank.SIXTH, Rank.SEVENTH], [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
-               {renderAchievementSection('2. Group Contests', 'groupContests', [Rank.FIRST, Rank.SECOND, Rank.THIRD, Rank.FOURTH, Rank.FIFTH, Rank.SIXTH, Rank.SEVENTH], [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
-               {renderAchievementSection('2.1 Special Awards', 'specialAwards', [Rank.FIRST, Rank.SECOND, Rank.THIRD, Rank.FOURTH, Rank.FIFTH, Rank.SIXTH, Rank.SEVENTH], [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
+            <div className="space-y-4 animate-in fade-in duration-500">
+               {renderAchievementSection('1. Individual Journalism Contests', 'individualContests', [Rank.FIRST, Rank.SECOND, Rank.THIRD, Rank.FOURTH, Rank.FIFTH, Rank.SIXTH, Rank.SEVENTH], [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
+               {renderAchievementSection('2. Group Journalism Contests', 'groupContests', [Rank.FIRST, Rank.SECOND, Rank.THIRD, Rank.FOURTH, Rank.FIFTH, Rank.SIXTH, Rank.SEVENTH], [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
+               {renderAchievementSection('2.1 Special Awards (Group)', 'specialAwards', [Rank.FIRST, Rank.SECOND, Rank.THIRD, Rank.FOURTH, Rank.FIFTH, Rank.SIXTH, Rank.SEVENTH], [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
+               {renderAchievementSection('3. School Publication Contests', 'publicationContests', [Rank.FIRST, Rank.SECOND, Rank.THIRD, Rank.FOURTH, Rank.FIFTH, Rank.SIXTH, Rank.SEVENTH], [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
             </div>
           )}
 
           {activeTab === 'leadership' && (
-            <div className="elegant-card p-10 rounded-[2.5rem] animate-in fade-in">
-              {renderSectionHeader('Leadership Roles', 'fa-user-tie', totals.leadershipTotal.toFixed(2), 'bg-indigo-500')}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-8 p-6 bg-slate-50 rounded-2xl">
-                 <div className="space-y-1">
-                   <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">Org Level</label>
-                   <select id="lead-lvl" className="w-full p-3 bg-white border border-slate-100 rounded-xl text-xs font-bold outline-none">
+            <div className="elegant-card p-12 rounded-[3rem] animate-in fade-in">
+              {renderSectionHeader('Leadership Portfolio', 'fa-user-tie', totals.leadershipTotal.toFixed(2), 'bg-indigo-500')}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-12 p-10 bg-slate-50/50 rounded-[2.5rem] border border-slate-100">
+                 <div className="space-y-2">
+                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 tracking-widest">Level</label>
+                   <select id="lead-lvl" className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-[11px] font-black outline-none">
                      <option value={Level.NATIONAL}>National</option>
                      <option value={Level.REGIONAL}>Regional</option>
                      <option value={Level.DIVISION}>Division</option>
                    </select>
                 </div>
-                <div className="space-y-1">
-                   <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">Position</label>
-                   <select id="lead-pos" className="w-full p-3 bg-white border border-slate-100 rounded-xl text-xs font-bold outline-none">
+                <div className="space-y-2">
+                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 tracking-widest">Position</label>
+                   <select id="lead-pos" className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-[11px] font-black outline-none">
                      <option value={Position.PRESIDENT}>President</option>
                      <option value={Position.VICE_PRESIDENT}>Vice President</option>
-                     <option value={Position.OTHER}>Officer</option>
+                     <option value={Position.OTHER}>Other Officer</option>
                    </select>
                 </div>
                 <div className="md:col-span-2 flex items-end">
@@ -570,27 +584,27 @@ const App: React.FC = () => {
                         const pos = (document.getElementById('lead-pos') as HTMLSelectElement).value as Position;
                         addItem('leadership', { level: lvl, position: pos });
                      }}
-                     className="w-full py-3.5 bg-slate-900 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-all"
+                     className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-100"
                    >
-                     Add Role
+                     Record Leadership Role
                    </button>
                 </div>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {data.leadership.map(item => (
-                  <div key={item.id} className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100 hover:border-indigo-200 transition-all">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center">
-                        <i className="fas fa-briefcase"></i>
+                  <div key={item.id} className="flex justify-between items-center p-8 bg-white rounded-[2rem] border border-slate-100 hover:border-indigo-300 transition-all group">
+                    <div className="flex items-center gap-8">
+                      <div className="w-16 h-16 bg-slate-50 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 rounded-2xl flex items-center justify-center text-3xl transition-all">
+                        <i className="fas fa-certificate"></i>
                       </div>
                       <div>
-                        <p className="font-bold text-slate-800 text-xs">{item.position}</p>
-                        <p className="text-[9px] text-indigo-500 font-bold uppercase tracking-widest">{item.level}</p>
+                        <p className="font-black text-slate-800 text-base tracking-tight">{item.position}</p>
+                        <p className="text-[11px] text-indigo-500 font-black uppercase tracking-widest mt-1">{item.level} Level</p>
                       </div>
                     </div>
-                    <button onClick={() => removeItem('leadership', item.id)} className="text-red-300 hover:text-red-500">
-                      <i className="fas fa-times-circle text-lg"></i>
+                    <button onClick={() => removeItem('leadership', item.id)} className="w-14 h-14 flex items-center justify-center text-red-200 hover:text-red-500 hover:bg-red-50 rounded-full transition-all">
+                      <i className="fas fa-circle-xmark text-3xl"></i>
                     </button>
                   </div>
                 ))}
@@ -599,36 +613,38 @@ const App: React.FC = () => {
           )}
 
           {activeTab === 'services' && (
-            <div className="space-y-8 animate-in fade-in">
-               {renderServiceSection('Extension Services', 'extensionServices', [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
-               {renderServiceSection('Innovations', 'innovations', [Level.NATIONAL, Level.REGIONAL, Level.DIVISION, Level.DISTRICT, Level.SCHOOL])}
-               {renderServiceSection('Speakership', 'speakership', [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
+            <div className="space-y-6 animate-in fade-in">
+               {renderServiceSection('5. Extension Services', 'extensionServices', [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
+               {renderServiceSection('Innovations & Advocacies', 'innovations', [Level.NATIONAL, Level.REGIONAL, Level.DIVISION, Level.DISTRICT, Level.SCHOOL])}
+               {renderServiceSection('6. Speakership & Judging', 'speakership', [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
+               {renderServiceSection('7. Published Books/Modules', 'publishedBooks', [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
+               {renderServiceSection('8. Published Articles', 'publishedArticles', [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
             </div>
           )}
 
           {activeTab === 'interview' && (
-            <div className="elegant-card p-10 rounded-[2.5rem] animate-in fade-in">
-              {renderSectionHeader('Panel Interview', 'fa-microphone-lines', totals.interviewTotal.toFixed(2), 'bg-blue-500')}
-              <div className="space-y-12 max-w-2xl mx-auto py-4">
+            <div className="elegant-card p-12 rounded-[3.5rem] animate-in fade-in">
+              {renderSectionHeader('Panel Assessment', 'fa-microphone-lines', totals.interviewTotal.toFixed(2), 'bg-blue-500')}
+              <div className="space-y-20 max-w-4xl mx-auto py-10">
                 {[
-                  { key: 'principles', label: 'Journalism Principles' },
-                  { key: 'leadership', label: 'Leadership Potential' },
-                  { key: 'engagement', label: 'Campus Engagement' },
-                  { key: 'commitment', label: 'Commitment' },
-                  { key: 'communication', label: 'Communication' }
+                  { key: 'principles', label: 'Journalism Principles & Ethics' },
+                  { key: 'leadership', label: 'Leadership & Mentorship' },
+                  { key: 'engagement', label: 'Community & Campus Engagement' },
+                  { key: 'commitment', label: 'Professional Commitment' },
+                  { key: 'communication', label: 'Communication Excellence' }
                 ].map(indicator => (
-                  <div key={indicator.key} className="space-y-5">
+                  <div key={indicator.key} className="space-y-8">
                     <div className="flex justify-between items-end">
-                      <label className="font-bold text-slate-700 text-[10px] uppercase tracking-widest">{indicator.label}</label>
-                      <span className="text-xs font-black text-indigo-600 tabular-nums">
+                      <label className="font-black text-slate-700 text-xs uppercase tracking-widest">{indicator.label}</label>
+                      <div className="px-6 py-3 bg-blue-50 text-blue-600 rounded-[1.5rem] text-sm font-black tabular-nums tracking-widest">
                         {data.interview[indicator.key as keyof InterviewScores].toFixed(1)} / 1.0
-                      </span>
+                      </div>
                     </div>
                     <input 
                       type="range" min="0" max="1" step="0.1" 
                       value={data.interview[indicator.key as keyof InterviewScores]}
                       onChange={e => setData({ ...data, interview: { ...data.interview, [indicator.key]: parseFloat(e.target.value) } })}
-                      className="w-full h-2 bg-slate-100 rounded-full appearance-none cursor-pointer accent-indigo-600"
+                      className="w-full h-4 bg-slate-100 rounded-full appearance-none cursor-pointer accent-blue-600 transition-all hover:bg-blue-50"
                     />
                   </div>
                 ))}
