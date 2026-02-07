@@ -72,9 +72,33 @@ export const SCORING_RUBRIC = {
       [Level.REGIONAL]: { [Position.PRESIDENT]: 7, [Position.VICE_PRESIDENT]: 6, [Position.OTHER]: 5 },
       [Level.DIVISION]: { [Position.PRESIDENT]: 4, [Position.VICE_PRESIDENT]: 3, [Position.OTHER]: 2 }
     },
-    INNOVATIONS: { [Level.NATIONAL]: 30, [Level.REGIONAL]: 25, [Level.DIVISION]: 20, [Level.DISTRICT]: 15, [Level.SCHOOL]: 10 },
-    COMMUNITY: { [Level.NATIONAL]: 10, [Level.REGIONAL]: 8, [Level.DIVISION]: 6, Facilitator: { [Level.NATIONAL]: 8, [Level.REGIONAL]: 6, [Level.DIVISION]: 4 } },
-    PUBLISHED_WORKS: { [Level.NATIONAL]: 5, [Level.REGIONAL]: 3, [Level.DIVISION]: 1 },
-    TRAININGS: { [Level.NATIONAL]: 5, [Level.REGIONAL]: 4, [Level.DIVISION]: 3, [Level.SCHOOL]: 2 }
+    INNOVATIONS: { 
+      [Level.NATIONAL]: 30, 
+      [Level.REGIONAL]: 25, 
+      [Level.DIVISION]: 20, 
+      [Level.DISTRICT]: 15, 
+      [Level.SCHOOL]: 10 
+    },
+    COMMUNITY: { 
+      [Level.NATIONAL]: 10, 
+      [Level.REGIONAL]: 8, 
+      [Level.DIVISION]: 6,
+      Facilitator: {
+        [Level.NATIONAL]: 8,
+        [Level.REGIONAL]: 6,
+        [Level.DIVISION]: 4
+      }
+    },
+    PUBLISHED_WORKS: { 
+      [Level.NATIONAL]: 5, 
+      [Level.REGIONAL]: 3, 
+      [Level.DIVISION]: 1 
+    },
+    TRAININGS: { 
+      [Level.NATIONAL]: 5, 
+      [Level.REGIONAL]: 4, 
+      [Level.DIVISION]: 3, 
+      [Level.SCHOOL]: 2 
+    }
   }
 };
