@@ -57,6 +57,7 @@ const App: React.FC = () => {
   const [data, setData] = useState<OSPAScoreState>(INITIAL_STATE);
   const [activeTab, setActiveTab] = useState<string>('basic');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionStep, setSubmissionStep] = useState<string>('');
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
 
@@ -133,11 +134,7 @@ const App: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 15 * 1024 * 1024) {
-      alert("File is too large! Keep under 15MB.");
-      return;
-    }
-    if (file.type !== 'application/pdf') {
-      alert("Please upload a PDF document.");
+      alert("⚠️ File size limit is 15MB. Please optimize your PDF portfolio.");
       return;
     }
     const reader = new FileReader();
@@ -159,12 +156,17 @@ const App: React.FC = () => {
     if (!isFormValid) {
       setShowValidationErrors(true);
       setActiveTab('basic');
-      alert("⚠️ Required Info Missing: Profile data and PDF portfolio are required.");
+      alert("⚠️ Missing Data: Profile details and PDF Portfolio are required for official search records.");
       return;
     }
 
     setIsSubmitting(true);
+    setSubmissionStep('Compressing Portfolio...');
     
+    await new Promise(r => setTimeout(r, 800)); // Visual beat for compression
+    
+    setSubmissionStep('Syncing with Cloud...');
+
     const sanitizedName = data.candidateName.replace(/\s+/g, '_').replace(/[^\w]/g, '');
     const sanitizedSchool = data.schoolName.replace(/\s+/g, '_').replace(/[^\w]/g, '');
     const finalFileName = `${data.division}_${sanitizedSchool}_${sanitizedName}.pdf`;
@@ -176,30 +178,39 @@ const App: React.FC = () => {
       schoolName: data.schoolName,
       averageRating: averageRating.toFixed(3),
       grandTotal: totals.grandTotal.toFixed(2),
-      movFile: data.movFile ? { ...data.movFile, name: finalFileName } : null,
       details: {
         journalism: (totals.indiv + totals.group + totals.special + totals.pub).toFixed(2),
         leadership: totals.leadershipTotal.toFixed(2),
         extensions: (totals.extension + totals.innovations + totals.speakership + totals.books + totals.articles).toFixed(2),
         interview: totals.interviewTotal.toFixed(2)
-      }
+      },
+      movFile: data.movFile ? {
+        data: data.movFile.data,
+        name: finalFileName,
+        mimeType: "application/pdf"
+      } : null
     };
 
     try {
+      // GAS Web Apps with no-cors usually don't throw error on 404/500
       await fetch(SCRIPT_URL, {
         method: "POST",
-        mode: "no-cors", 
-        cache: "no-cache",
-        headers: { "Content-Type": "application/json" },
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain" },
         body: JSON.stringify(payload)
       });
-      alert(`✅ Upload Triggered!\n\nNominee: ${data.candidateName}\n\nData sent to Google Sheet. Check your Drive folder in a few moments for the PDF.`);
+      
+      setSubmissionStep('Finalizing Receipt...');
+      await new Promise(r => setTimeout(r, 1200));
+
+      alert(`✅ TRANSMISSION COMPLETE!\n\nNominee: ${data.candidateName}\n\nYour scores have been sent to the Master Sheet. If your PDF does not appear in the Drive folder within 1 minute, please verify your FOLDER_ID and verify that you ran the 'authorizeMe' function in your Apps Script.`);
       setShowValidationErrors(false);
     } catch (error: any) {
       console.error("Submission Error:", error);
-      alert("❌ Submission Failed. Check your SCRIPT_URL or network connection.");
+      alert("❌ NETWORK ERROR: Unable to reach the Google Cloud script. Please check your SCRIPT_URL or internet connection.");
     } finally {
       setIsSubmitting(false);
+      setSubmissionStep('');
     }
   };
 
@@ -218,19 +229,19 @@ const App: React.FC = () => {
   };
 
   const renderSectionHeader = (title: string, icon: string, value: string, color: string) => (
-    <div className="flex justify-between items-center mb-10">
-      <div className="flex items-center gap-5">
-        <div className={`w-14 h-14 ${color} bg-opacity-10 ${color.replace('bg-', 'text-')} rounded-2xl flex items-center justify-center text-2xl`}>
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
+      <div className="flex items-center gap-6">
+        <div className={`w-16 h-16 ${color} bg-opacity-20 ${color.replace('bg-', 'text-')} rounded-2xl flex items-center justify-center text-3xl shadow-lg border border-white/5`}>
           <i className={`fas ${icon}`}></i>
         </div>
         <div>
-          <h3 className="text-2xl font-black text-slate-800 tracking-tight">{title}</h3>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Component Points</p>
+          <h3 className="text-3xl font-black text-white tracking-tight">{title}</h3>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em] mt-2">Matrix Evaluation Pillar</p>
         </div>
       </div>
-      <div className="text-right">
-        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Weighted Contribution</span>
-        <span className="text-4xl font-black text-slate-900 tabular-nums">{value}</span>
+      <div className="glass-card px-8 py-5 rounded-3xl text-right min-w-[200px]">
+        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Component Value</span>
+        <span className="text-5xl font-black text-indigo-400 tabular-nums leading-none tracking-tighter">{value}</span>
       </div>
     </div>
   );
@@ -244,29 +255,32 @@ const App: React.FC = () => {
       return 0;
     };
     return (
-      <div className="elegant-card p-10 rounded-[2.5rem] mb-8 border border-slate-100 shadow-sm overflow-hidden">
+      <div className="glass-card p-10 rounded-[3rem] mb-8 overflow-hidden relative">
         <div className="flex justify-between items-center mb-8">
-          <h3 className="text-xl font-black text-slate-800 tracking-tight">{title}</h3>
-          <span className="bg-indigo-50 text-indigo-600 px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest">
-            Subtotal: {getVal().toFixed(2)}
+          <h3 className="text-xl font-bold text-slate-100 tracking-tight flex items-center gap-3">
+             <span className="w-2 h-7 bg-indigo-500 rounded-full shadow-[0_0_15px_rgba(99,102,241,0.5)]"></span>
+             {title}
+          </h3>
+          <span className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-6 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest">
+            {getVal().toFixed(2)} Points
           </span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
-          <div className="space-y-1">
-            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">Level</label>
-            <select id={`${category}-lvl`} className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-[11px] font-black outline-none focus:ring-4 focus:ring-indigo-50">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 p-8 bg-slate-900/40 rounded-[2rem] border border-white/5">
+          <div className="space-y-2">
+            <label className="text-[9px] font-bold text-slate-500 uppercase ml-2 tracking-widest">Level</label>
+            <select id={`${category}-lvl`} className="w-full p-4 bg-slate-800/80 border border-white/5 rounded-2xl text-[11px] font-bold text-white outline-none focus:ring-4 focus:ring-indigo-500/20 transition-all">
               {levels.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
           </div>
-          <div className="space-y-1">
-            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">Rank</label>
-            <select id={`${category}-rnk`} className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-[11px] font-black outline-none focus:ring-4 focus:ring-indigo-50">
+          <div className="space-y-2">
+            <label className="text-[9px] font-bold text-slate-500 uppercase ml-2 tracking-widest">Rank</label>
+            <select id={`${category}-rnk`} className="w-full p-4 bg-slate-800/80 border border-white/5 rounded-2xl text-[11px] font-bold text-white outline-none focus:ring-4 focus:ring-indigo-500/20 transition-all">
               {ranks.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
-          <div className="space-y-1">
-            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">Year</label>
-            <input id={`${category}-yr`} type="text" placeholder="e.g. 2024" className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-[11px] font-black outline-none focus:ring-4 focus:ring-indigo-50" />
+          <div className="space-y-2">
+            <label className="text-[9px] font-bold text-slate-500 uppercase ml-2 tracking-widest">Year</label>
+            <input id={`${category}-yr`} type="text" placeholder="2024-2025" className="w-full p-4 bg-slate-800/80 border border-white/5 rounded-2xl text-[11px] font-bold text-white outline-none focus:ring-4 focus:ring-indigo-500/20 transition-all" />
           </div>
           <div className="flex items-end">
             <button 
@@ -277,9 +291,9 @@ const App: React.FC = () => {
                  if (yr) {
                    addItem(category, { level: lvl, rank: rnk, year: yr });
                    (document.getElementById(`${category}-yr`) as HTMLInputElement).value = '';
-                 }
+                 } else alert("Input the year for the award.");
               }}
-              className="w-full bg-slate-900 text-white p-4 rounded-2xl hover:bg-black transition-all font-black text-[10px] uppercase tracking-widest shadow-lg"
+              className="w-full bg-white text-slate-900 p-4.5 rounded-2xl hover:bg-indigo-400 hover:text-white transition-all font-black text-[10px] uppercase tracking-widest shadow-xl neo-button"
             >
               Add Award
             </button>
@@ -288,28 +302,28 @@ const App: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-slate-100 text-slate-400 text-[9px] font-bold uppercase tracking-widest">
+              <tr className="border-b border-white/5 text-slate-500 text-[9px] font-bold uppercase tracking-widest">
                 <th className="py-4 px-2">Level</th>
                 <th className="py-4 px-2">Rank</th>
                 <th className="py-4 px-2">Year</th>
-                <th className="py-4 px-2 text-right">Delete</th>
+                <th className="py-4 px-2 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-white/5">
               {(data[category] as Achievement[]).map(item => (
-                <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-5 px-2 text-[11px] font-black text-slate-700">{item.level}</td>
-                  <td className="py-5 px-2 text-[11px] font-black text-slate-700">{item.rank}</td>
-                  <td className="py-5 px-2 text-[11px] font-black text-slate-700">{item.year}</td>
+                <tr key={item.id} className="hover:bg-white/5 transition-colors group">
+                  <td className="py-5 px-2 text-[11px] font-bold text-slate-200">{item.level}</td>
+                  <td className="py-5 px-2 text-[11px] font-bold text-slate-200">{item.rank}</td>
+                  <td className="py-5 px-2 text-[11px] font-bold text-slate-200">{item.year}</td>
                   <td className="py-5 px-2 text-right">
-                    <button onClick={() => removeItem(category, item.id)} className="w-10 h-10 rounded-2xl text-red-200 hover:text-red-500 hover:bg-red-50 transition-all">
+                    <button onClick={() => removeItem(category, item.id)} className="w-10 h-10 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all">
                       <i className="fas fa-trash-can text-sm"></i>
                     </button>
                   </td>
                 </tr>
               ))}
               {(data[category] as Achievement[]).length === 0 && (
-                <tr><td colSpan={4} className="py-12 text-center text-slate-300 text-xs italic">No entries added to this category.</td></tr>
+                <tr><td colSpan={4} className="py-12 text-center text-slate-500 text-xs italic">Awaiting manual entry of records...</td></tr>
               )}
             </tbody>
           </table>
@@ -328,17 +342,20 @@ const App: React.FC = () => {
       return 0;
     };
     return (
-      <div className="elegant-card p-10 rounded-[2.5rem] mb-8 border border-slate-100 shadow-sm overflow-hidden">
+      <div className="glass-card p-10 rounded-[3rem] mb-8 overflow-hidden">
         <div className="flex justify-between items-center mb-8">
-          <h3 className="text-xl font-black text-slate-800 tracking-tight">{title}</h3>
-          <span className="bg-emerald-50 text-emerald-600 px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest">
-            Subtotal: {getVal().toFixed(2)}
+          <h3 className="text-xl font-bold text-slate-100 tracking-tight flex items-center gap-3">
+             <span className="w-2 h-7 bg-emerald-500 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.5)]"></span>
+             {title}
+          </h3>
+          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-6 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest">
+            {getVal().toFixed(2)} Points
           </span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
-          <div className="md:col-span-2 space-y-1">
-            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">Service Level</label>
-            <select id={`${category}-slvl`} className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-[11px] font-black outline-none">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 p-8 bg-slate-900/40 rounded-[2rem] border border-white/5">
+          <div className="md:col-span-2 space-y-2">
+            <label className="text-[9px] font-bold text-slate-500 uppercase ml-2 tracking-widest">Level</label>
+            <select id={`${category}-slvl`} className="w-full p-4 bg-slate-800/80 border border-white/5 rounded-2xl text-[11px] font-bold text-white outline-none focus:ring-4 focus:ring-emerald-500/20 transition-all">
               {levels.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
           </div>
@@ -348,33 +365,33 @@ const App: React.FC = () => {
                  const lvl = (document.getElementById(`${category}-slvl`) as HTMLSelectElement).value as Level;
                  addItem(category, { level: lvl });
               }}
-              className="w-full bg-slate-900 text-white p-4 rounded-2xl hover:bg-black transition-all font-black text-[10px] uppercase tracking-widest shadow-lg"
+              className="w-full bg-white text-slate-900 p-4.5 rounded-2xl hover:bg-emerald-400 hover:text-white transition-all font-black text-[10px] uppercase tracking-widest shadow-xl neo-button"
             >
-              Add Entry
+              Log Entry
             </button>
           </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-slate-100 text-slate-400 text-[9px] font-bold uppercase tracking-widest">
+              <tr className="border-b border-white/5 text-slate-500 text-[9px] font-bold uppercase tracking-widest">
                 <th className="py-4 px-2">Level</th>
-                <th className="py-4 px-2 text-right">Delete</th>
+                <th className="py-4 px-2 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-white/5">
               {(data[category] as ServiceEntry[]).map(item => (
-                <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-5 px-2 text-[11px] font-black text-slate-700">{item.level}</td>
+                <tr key={item.id} className="hover:bg-white/5 transition-colors">
+                  <td className="py-5 px-2 text-[11px] font-bold text-slate-200">{item.level}</td>
                   <td className="py-5 px-2 text-right">
-                    <button onClick={() => removeItem(category, item.id)} className="w-10 h-10 rounded-2xl text-red-200 hover:text-red-500 hover:bg-red-50 transition-all">
+                    <button onClick={() => removeItem(category, item.id)} className="w-10 h-10 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all">
                       <i className="fas fa-trash-can text-sm"></i>
                     </button>
                   </td>
                 </tr>
               ))}
               {(data[category] as ServiceEntry[]).length === 0 && (
-                <tr><td colSpan={2} className="py-12 text-center text-slate-300 text-xs italic">No records added.</td></tr>
+                <tr><td colSpan={2} className="py-12 text-center text-slate-500 text-xs italic">No documented activity logged.</td></tr>
               )}
             </tbody>
           </table>
@@ -384,68 +401,378 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen pb-20 bg-slate-50/30">
-      <header className="bg-white/90 backdrop-blur-2xl border-b border-slate-100 sticky top-0 z-[100] h-20 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
-          <div className="flex items-center gap-5">
-            <div className="w-11 h-11 bg-indigo-600 rounded-2xl flex items-center justify-center text-white text-xl shadow-xl shadow-indigo-100">
-              <i className="fas fa-feather-pointed"></i>
+    <div className="min-h-screen flex flex-col">
+      {/* Dynamic Header */}
+      <header className="glass-panel sticky top-0 z-[200] h-24 flex items-center px-8 border-b border-white/5">
+        <div className="max-w-[1600px] mx-auto w-full flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl flex items-center justify-center text-white text-xl shadow-2xl shadow-indigo-500/20">
+              <i className="fas fa-signature"></i>
             </div>
-            <div>
-              <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none uppercase">OSPA <span className="text-indigo-600">Scorer</span></h1>
-              <p className="text-[9px] text-slate-400 font-bold tracking-[0.2em] uppercase mt-1">Outstanding School Paper Adviser</p>
+            <div className="hidden lg:block">
+              <h1 className="text-xl font-black text-white tracking-tight uppercase leading-none">OSPA <span className="text-indigo-500">PRO DASHBOARD</span></h1>
+              <p className="text-[8px] text-slate-500 font-bold tracking-[0.4em] uppercase mt-2">Evaluation & Search Excellence Platform</p>
             </div>
           </div>
-          <div className="hidden md:flex items-center gap-12">
-            <button 
-              onClick={() => setShowInstructions(true)}
-              className="text-[10px] font-black uppercase text-indigo-600 tracking-widest hover:underline"
-            >
-              Setup Guide
-            </button>
-            <div className="text-right">
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Grand Total</p>
-              <p className="text-4xl font-black text-indigo-600 tabular-nums leading-none tracking-tighter">{totals.grandTotal.toFixed(2)}</p>
+          
+          <div className="flex items-center gap-10">
+            <div className="hidden xl:flex items-center gap-10 px-10 border-x border-white/5">
+                <div className="text-right">
+                  <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1">Matrix Grand Total</p>
+                  <p className="text-5xl font-black text-indigo-500 tabular-nums leading-none tracking-tighter">{totals.grandTotal.toFixed(2)}</p>
+                </div>
             </div>
-            <button 
-              onClick={handleSave}
-              disabled={isSubmitting}
-              className={`px-12 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center gap-3 ${isSubmitting ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none' : 'bg-slate-900 text-white hover:bg-black hover:scale-[1.02] active:scale-95 shadow-2xl shadow-slate-200'}`}
-            >
-              {isSubmitting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-cloud-arrow-up"></i>}
-              {isSubmitting ? 'Submitting...' : 'Upload Data'}
-            </button>
+            
+            <div className="flex items-center gap-4">
+               <button 
+                  onClick={() => setShowInstructions(true)}
+                  className="w-12 h-12 rounded-2xl bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center border border-white/5"
+                  title="Config Hub"
+                >
+                  <i className="fas fa-code-branch"></i>
+                </button>
+                <button 
+                  onClick={handleSave}
+                  disabled={isSubmitting}
+                  className={`relative group px-12 py-4.5 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] transition-all flex items-center gap-4 overflow-hidden border border-white/10 ${isSubmitting ? 'bg-slate-800 text-slate-500' : 'bg-white text-slate-900 hover:scale-105 active:scale-95 shadow-2xl shadow-indigo-500/10'}`}
+                >
+                  {isSubmitting ? <i className="fas fa-atom fa-spin"></i> : <i className="fas fa-cloud-arrow-up"></i>}
+                  {isSubmitting ? (submissionStep || 'Processing...') : 'Sync Records'}
+                </button>
+            </div>
           </div>
         </div>
       </header>
 
+      {/* Main Layout */}
+      <div className="flex flex-1 max-w-[1600px] mx-auto w-full">
+        {/* Navigation Sidebar */}
+        <aside className="w-80 hidden lg:block p-8 dashboard-sidebar space-y-12 shrink-0">
+          <div className="space-y-10">
+            <div className="space-y-4">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2 block">Candidate Profile</label>
+              <div className="space-y-3">
+                 <select 
+                   className={`w-full p-4.5 bg-slate-900/50 border rounded-2xl text-[11px] font-bold text-white outline-none transition-all ${showValidationErrors && !data.division ? 'border-red-500/50 ring-2 ring-red-500/10' : 'border-white/5 focus:border-indigo-500/50'}`}
+                   value={data.division}
+                   onChange={e => setData({...data, division: e.target.value})}
+                 >
+                   <option value="">Select Division</option>
+                   {NCR_DIVISIONS.map(div => <option key={div} value={div}>{div}</option>)}
+                 </select>
+                 <input 
+                   type="text" placeholder="Full Official Name" 
+                   className={`w-full p-4.5 bg-slate-900/50 border rounded-2xl text-[11px] font-bold text-white outline-none transition-all ${showValidationErrors && !data.candidateName.trim() ? 'border-red-500/50 ring-2 ring-red-500/10' : 'border-white/5 focus:border-indigo-500/50'}`}
+                   value={data.candidateName}
+                   onChange={e => setData({...data, candidateName: e.target.value})}
+                 />
+                 <input 
+                   type="text" placeholder="Official School Name" 
+                   className={`w-full p-4.5 bg-slate-900/50 border rounded-2xl text-[11px] font-bold text-white outline-none transition-all ${showValidationErrors && !data.schoolName.trim() ? 'border-red-500/50 ring-2 ring-red-500/10' : 'border-white/5 focus:border-indigo-500/50'}`}
+                   value={data.schoolName}
+                   onChange={e => setData({...data, schoolName: e.target.value})}
+                 />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+               <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2 block">Evidence Pack</label>
+               <div className={`relative border-2 border-dashed rounded-[2.5rem] p-8 text-center transition-all cursor-pointer group ${data.movFile ? 'border-emerald-500/50 bg-emerald-500/5' : (showValidationErrors && !data.movFile ? 'border-red-500 animate-pulse' : 'border-white/5 hover:border-indigo-500/50 hover:bg-white/5')}`}>
+                  <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileUpload} />
+                  <div className="space-y-4">
+                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto transition-all ${data.movFile ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-white/5 text-slate-500 group-hover:scale-110'}`}>
+                        <i className={`fas ${data.movFile ? 'fa-check-circle' : 'fa-file-pdf'} text-2xl`}></i>
+                     </div>
+                     <p className={`text-[9px] font-black uppercase tracking-widest truncate max-w-full ${data.movFile ? 'text-emerald-400' : 'text-slate-500'}`}>
+                        {data.movFile ? data.movFile.name : 'Select PDF Portfolio'}
+                     </p>
+                  </div>
+               </div>
+            </div>
+          </div>
+
+          <nav className="space-y-3 pt-12 border-t border-white/5">
+             {[
+               { id: 'basic', label: 'Evaluation Matrix', icon: 'fa-table-cells' },
+               { id: 'contests', label: 'Journalism Record', icon: 'fa-feather' },
+               { id: 'leadership', label: 'Leadership', icon: 'fa-medal' },
+               { id: 'services', label: 'Extensions', icon: 'fa-briefcase' },
+               { id: 'interview', label: 'Pro Interview', icon: 'fa-headset' }
+             ].map(tab => (
+               <button
+                 key={tab.id}
+                 onClick={() => setActiveTab(tab.id)}
+                 className={`w-full flex items-center gap-5 px-8 py-5 rounded-2xl text-left text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-white text-slate-900 shadow-2xl scale-[1.05] z-10' : 'text-slate-500 hover:bg-white/5 hover:text-white'}`}
+               >
+                 <i className={`fas ${tab.icon} w-5 text-center text-sm`}></i>
+                 {tab.label}
+               </button>
+             ))}
+          </nav>
+        </aside>
+
+        {/* Dynamic Content Section */}
+        <section className="flex-1 p-8 lg:p-12 overflow-y-auto no-scrollbar pb-40">
+           {activeTab === 'basic' && (
+             <div className="space-y-12 animate-in fade-in slide-in-from-bottom duration-500">
+               <div className="glass-card p-12 rounded-[3.5rem] relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+                  
+                  <div className="flex flex-col md:flex-row items-start md:items-center gap-10 mb-20">
+                    <div className="w-20 h-20 bg-indigo-500 text-white rounded-[2rem] flex items-center justify-center text-4xl shadow-2xl shadow-indigo-500/20">
+                      <i className="fas fa-layer-group"></i>
+                    </div>
+                    <div>
+                      <h2 className="text-4xl font-black text-white tracking-tight leading-none mb-4">Official Aggregate Matrix</h2>
+                      <p className="text-slate-500 text-sm font-medium tracking-wide">Enter the performance ratings for the previous five (5) consecutive school years.</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">
+                    {data.performanceRatings.map((entry) => (
+                      <div key={entry.year} className="p-8 glass-card border-white/5 rounded-[2.5rem] group/input transition-all hover:bg-white/10">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 block">{entry.year}</label>
+                        <input 
+                          type="number" step="0.001"
+                          className="w-full bg-transparent text-5xl font-black text-white outline-none group-focus-within/input:text-indigo-400 transition-colors tabular-nums"
+                          value={entry.score}
+                          onChange={(e) => {
+                             const val = parseFloat(e.target.value) || 0;
+                             setData(prev => ({
+                               ...prev,
+                               performanceRatings: prev.performanceRatings.map(r => r.year === entry.year ? { ...r, score: val } : r)
+                             }));
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-16 p-12 bg-indigo-600 rounded-[3.5rem] flex flex-col md:flex-row items-center justify-between text-white shadow-3xl shadow-indigo-500/20 relative overflow-hidden">
+                    <div className="absolute inset-0 animate-shimmer opacity-20"></div>
+                    <div className="flex flex-col md:flex-row items-center gap-10 relative z-10">
+                      <div className="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-[2.5rem] flex items-center justify-center text-5xl border border-white/20">
+                        <i className="fas fa-microchip"></i>
+                      </div>
+                      <div className="text-center md:text-left">
+                        <p className="text-[11px] font-bold text-indigo-100 uppercase tracking-[0.4em] mb-3">Master Aggregate Score</p>
+                        <p className="text-9xl font-black tabular-nums tracking-tighter leading-none">{averageRating.toFixed(3)}</p>
+                      </div>
+                    </div>
+                    <div className="mt-10 md:mt-0 px-12 py-6 bg-white text-indigo-600 rounded-[2rem] text-[12px] font-black uppercase tracking-[0.2em] shadow-2xl relative z-10">
+                      {averageRating >= 4.5 ? 'Distinguished' : (averageRating >= 4.0 ? 'Exemplary' : 'Proficient')}
+                    </div>
+                  </div>
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
+                  {[
+                    { label: 'Journalism', value: (totals.indiv + totals.group + totals.special + totals.pub).toFixed(2), icon: 'fa-feather', color: 'from-amber-400 to-orange-600' },
+                    { label: 'Leadership', value: totals.leadershipTotal.toFixed(2), icon: 'fa-medal', color: 'from-indigo-400 to-indigo-600' },
+                    { label: 'Extension', value: (totals.extension + totals.innovations + totals.speakership + totals.books + totals.articles).toFixed(2), icon: 'fa-atom', color: 'from-emerald-400 to-emerald-600' },
+                    { label: 'Interview', value: totals.interviewTotal.toFixed(2), icon: 'fa-headset', color: 'from-blue-400 to-blue-600' }
+                  ].map((stat, i) => (
+                    <div key={i} className="glass-card p-10 rounded-[3rem] group">
+                      <div className={`w-16 h-16 bg-gradient-to-tr ${stat.color} rounded-2xl flex items-center justify-center mb-10 text-3xl text-white shadow-xl group-hover:scale-110 transition-all`}>
+                        <i className={`fas ${stat.icon}`}></i>
+                      </div>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">{stat.label}</p>
+                      <p className="text-5xl font-black text-white tabular-nums tracking-tighter">{stat.value}</p>
+                    </div>
+                  ))}
+               </div>
+             </div>
+           )}
+
+           {activeTab === 'contests' && (
+             <div className="space-y-6 animate-in slide-in-from-right duration-500">
+                {renderAchievementSection('I. Individual Achievement', 'individualContests', [Rank.FIRST, Rank.SECOND, Rank.THIRD, Rank.FOURTH, Rank.FIFTH, Rank.SIXTH, Rank.SEVENTH], [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
+                {renderAchievementSection('II. Group Category Excellence', 'groupContests', [Rank.FIRST, Rank.SECOND, Rank.THIRD, Rank.FOURTH, Rank.FIFTH, Rank.SIXTH, Rank.SEVENTH], [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
+                {renderAchievementSection('III. Special Merit Awards', 'specialAwards', [Rank.FIRST, Rank.SECOND, Rank.THIRD, Rank.FOURTH, Rank.FIFTH, Rank.SIXTH, Rank.SEVENTH], [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
+                {renderAchievementSection('IV. Publication Recognition', 'publicationContests', [Rank.FIRST, Rank.SECOND, Rank.THIRD, Rank.FOURTH, Rank.FIFTH, Rank.SIXTH, Rank.SEVENTH], [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
+             </div>
+           )}
+
+           {activeTab === 'leadership' && (
+             <div className="glass-card p-12 rounded-[3.5rem] animate-in zoom-in-95 duration-500">
+                {renderSectionHeader('Leadership Portfolio', 'fa-award', totals.leadershipTotal.toFixed(2), 'bg-indigo-500')}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-16 p-10 bg-slate-900/40 rounded-[3rem] border border-white/5">
+                   <div className="space-y-4">
+                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Organization Level</label>
+                     <select id="lead-lvl" className="w-full p-5 bg-slate-800 border border-white/5 rounded-2xl text-[12px] font-black text-white outline-none ring-offset-4 ring-indigo-500/20 focus:ring-4">
+                       <option value={Level.NATIONAL}>National</option>
+                       <option value={Level.REGIONAL}>Regional</option>
+                       <option value={Level.DIVISION}>Division</option>
+                     </select>
+                  </div>
+                  <div className="space-y-4">
+                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Highest Position</label>
+                     <select id="lead-pos" className="w-full p-5 bg-slate-800 border border-white/5 rounded-2xl text-[12px] font-black text-white outline-none ring-offset-4 ring-indigo-500/20 focus:ring-4">
+                       <option value={Position.PRESIDENT}>President</option>
+                       <option value={Position.VICE_PRESIDENT}>Vice President</option>
+                       <option value={Position.OTHER}>Other Officer</option>
+                     </select>
+                  </div>
+                  <div className="md:col-span-2 flex items-end">
+                     <button 
+                       onClick={() => {
+                          const lvl = (document.getElementById('lead-lvl') as HTMLSelectElement).value as Level;
+                          const pos = (document.getElementById('lead-pos') as HTMLSelectElement).value as Position;
+                          addItem('leadership', { level: lvl, position: pos });
+                       }}
+                       className="w-full py-6 bg-white text-slate-900 rounded-3xl font-black text-[12px] uppercase tracking-widest hover:bg-indigo-400 hover:text-white transition-all shadow-2xl neo-button"
+                     >
+                       Record Leadership Tenure
+                     </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {data.leadership.map(item => (
+                    <div key={item.id} className="flex justify-between items-center p-10 glass-card rounded-[3rem] group">
+                      <div className="flex items-center gap-8">
+                        <div className="w-16 h-16 bg-white/5 text-indigo-400 rounded-2xl flex items-center justify-center text-3xl group-hover:bg-indigo-500 group-hover:text-white transition-all">
+                          <i className="fas fa-crown"></i>
+                        </div>
+                        <div>
+                          <p className="font-black text-white text-xl tracking-tight">{item.position}</p>
+                          <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-2">{item.level} Level</p>
+                        </div>
+                      </div>
+                      <button onClick={() => removeItem('leadership', item.id)} className="w-14 h-14 flex items-center justify-center text-slate-600 hover:text-red-400 transition-all">
+                        <i className="fas fa-times-circle text-3xl"></i>
+                      </button>
+                    </div>
+                  ))}
+                  {data.leadership.length === 0 && (
+                    <div className="col-span-2 py-24 text-center border-2 border-dashed border-white/5 rounded-[4rem]">
+                       <p className="text-slate-600 text-sm font-medium italic">Documented leadership roles will appear here.</p>
+                    </div>
+                  )}
+                </div>
+             </div>
+           )}
+
+           {activeTab === 'services' && (
+             <div className="space-y-8 animate-in slide-in-from-right duration-500">
+                {renderServiceSection('V. Extension Services (Facilitator)', 'extensionServices', [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
+                {renderServiceSection('VI. Innovations & Advocacy', 'innovations', [Level.NATIONAL, Level.REGIONAL, Level.DIVISION, Level.DISTRICT, Level.SCHOOL])}
+                {renderServiceSection('VII. Resource Speakership', 'speakership', [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
+                {renderServiceSection('VIII. Published Books & Modules', 'publishedBooks', [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
+                {renderServiceSection('IX. Research Publication', 'publishedArticles', [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
+             </div>
+           )}
+
+           {activeTab === 'interview' && (
+             <div className="glass-card p-12 rounded-[3.5rem] animate-in zoom-in-95 duration-500">
+               {renderSectionHeader('Official Interview', 'fa-headset', totals.interviewTotal.toFixed(2), 'bg-blue-500')}
+               <div className="space-y-24 max-w-4xl mx-auto py-16">
+                 {[
+                   { key: 'principles', label: 'Journalism Ethics & Governance', icon: 'fa-scale-balanced' },
+                   { key: 'leadership', label: 'Mentorship & Professional Influence', icon: 'fa-users-rays' },
+                   { key: 'engagement', label: 'Stakeholder & Community Integration', icon: 'fa-earth-asia' },
+                   { key: 'commitment', label: 'Ethical Integrity & Personal Mission', icon: 'fa-shield-halved' },
+                   { key: 'communication', label: 'Verbal & Narrative Articulation', icon: 'fa-comment-dots' }
+                 ].map(indicator => (
+                   <div key={indicator.key} className="space-y-12 group">
+                     <div className="flex justify-between items-end">
+                        <div className="flex items-center gap-6">
+                           <div className="w-14 h-14 bg-white/5 text-blue-400 rounded-2xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                              <i className={`fas ${indicator.icon}`}></i>
+                           </div>
+                           <div>
+                              <label className="font-black text-white text-[12px] uppercase tracking-widest leading-none">{indicator.label}</label>
+                              <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mt-2 italic">Search Indicator 2.4.b</p>
+                           </div>
+                        </div>
+                        <div className="px-10 py-4 bg-blue-600 text-white rounded-3xl text-2xl font-black tabular-nums shadow-2xl shadow-blue-500/30">
+                          {data.interview[indicator.key as keyof InterviewScores].toFixed(1)} <span className="text-[11px] text-blue-200 font-bold ml-2">/ 1.0</span>
+                        </div>
+                     </div>
+                     <div className="px-2">
+                        <input 
+                          type="range" min="0" max="1" step="0.1" 
+                          value={data.interview[indicator.key as keyof InterviewScores]}
+                          onChange={e => setData({ ...data, interview: { ...data.interview, [indicator.key]: parseFloat(e.target.value) } })}
+                          className="w-full"
+                        />
+                     </div>
+                     <div className="flex justify-between text-[9px] font-black text-slate-600 uppercase tracking-[0.3em] px-1">
+                        <span>Baseline</span>
+                        <span>Exceptional</span>
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             </div>
+           )}
+        </section>
+      </div>
+
+      {/* Script Setup Overlay */}
       {showInstructions && (
-        <div className="fixed inset-0 z-[1000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6">
-          <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[3rem] shadow-3xl overflow-hidden flex flex-col">
-            <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h2 className="text-2xl font-black text-slate-900">Google Side Configuration</h2>
-              <button onClick={() => setShowInstructions(false)} className="w-12 h-12 bg-white rounded-2xl text-slate-400 hover:text-slate-900 shadow-sm border border-slate-100">
-                <i className="fas fa-times"></i>
+        <div className="fixed inset-0 z-[1000] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-8 animate-in fade-in duration-300">
+          <div className="bg-slate-900 w-full max-w-6xl max-h-[85vh] rounded-[4rem] shadow-3xl overflow-hidden flex flex-col border border-white/5">
+            <div className="p-12 border-b border-white/5 flex justify-between items-center">
+              <div className="flex items-center gap-6">
+                <div className="w-16 h-16 bg-white text-slate-900 rounded-[2rem] flex items-center justify-center text-2xl">
+                  <i className="fas fa-code"></i>
+                </div>
+                <div>
+                   <h2 className="text-3xl font-black text-white">Back-end Configuration</h2>
+                   <p className="text-slate-500 text-sm font-medium mt-1">Configure your Google Apps Script for automated data logging & storage.</p>
+                </div>
+              </div>
+              <button onClick={() => setShowInstructions(false)} className="w-16 h-16 bg-white/5 rounded-3xl text-slate-500 hover:text-white transition-all flex items-center justify-center">
+                <i className="fas fa-times text-2xl"></i>
               </button>
             </div>
-            <div className="p-10 overflow-y-auto space-y-8 no-scrollbar">
-              <div className="p-8 bg-indigo-50 border border-indigo-100 rounded-[2rem] space-y-4">
-                <p className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">Important Setup Instructions</p>
-                <p className="text-sm text-indigo-900 font-medium leading-relaxed">
-                  To ensure the PDF is saved to your Drive, your Google Apps Script MUST have access to Drive. 
-                  Replace your entire script with the code below, update the <code className="bg-white px-2 py-0.5 rounded text-indigo-600">FOLDER_ID</code>, and run <code className="bg-white px-2 py-0.5 rounded text-indigo-600">authorizeMe</code> function once.
-                </p>
+            
+            <div className="p-12 overflow-y-auto space-y-12 no-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                 <div className="p-10 bg-indigo-500/5 border border-indigo-500/10 rounded-[3rem] space-y-6">
+                    <h3 className="text-[11px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-3">
+                        <i className="fas fa-folder-open"></i> 1. Drive Preparation
+                    </h3>
+                    <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                        Create a folder in Google Drive. Copy its ID from the URL bar (the text after <code className="text-indigo-300">/folders/</code>). Ensure sharing is set to "Anyone with the link can edit".
+                    </p>
+                 </div>
+                 <div className="p-10 bg-emerald-500/5 border border-emerald-500/10 rounded-[3rem] space-y-6">
+                    <h3 className="text-[11px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-3">
+                        <i className="fas fa-user-shield"></i> 2. Authorization
+                    </h3>
+                    <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                        Paste the code below into Apps Script. Select <b>'authorizeMe'</b> and click <b>Run</b>. Complete the Google security dialog (Advanced -> Go to unsafe).
+                    </p>
+                 </div>
+                 <div className="p-10 bg-blue-500/5 border border-blue-500/10 rounded-[3rem] space-y-6">
+                    <h3 className="text-[11px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-3">
+                        <i className="fas fa-rocket"></i> 3. Deployment
+                    </h3>
+                    <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                        Click <b>Deploy > New Deployment</b>. Set Type to "Web App", Execute as "Me", and Access to "Anyone". Paste the URL in the <b>SCRIPT_URL</b> variable in App.tsx.
+                    </p>
+                 </div>
               </div>
-              <div className="relative">
-                <pre className="p-6 bg-slate-900 text-emerald-400 text-xs rounded-3xl overflow-x-auto font-mono leading-relaxed h-[400px]">
-{`var FOLDER_ID = "PASTE_YOUR_FOLDER_ID_HERE"; 
+
+              <div className="relative group">
+                <div className="absolute top-8 right-8 z-10">
+                    <button className="bg-white text-slate-900 px-6 py-3 rounded-2xl text-[10px] font-black tracking-widest hover:bg-indigo-400 hover:text-white transition-all shadow-2xl">COPY VERIFIED CODE</button>
+                </div>
+                <pre className="p-12 bg-black/40 text-indigo-300 text-[12px] rounded-[3rem] overflow-x-auto font-mono leading-relaxed h-[500px] border border-white/5 scrollbar-thin">
+{`/** 
+ * OSPA AUTOMATED EVALUATION SYNC 
+ * INSTRUCTIONS: Update FOLDER_ID and run authorizeMe() once.
+ */
+var FOLDER_ID = "PASTE_YOUR_DRIVE_FOLDER_ID_HERE"; 
 
 function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
     
-    // 1. Append to Sheet
+    // 1. DATA ENTRY: Append Evaluation Scores
     sheet.appendRow([
       data.timestamp,
       data.division,
@@ -459,287 +786,39 @@ function doPost(e) {
       data.grandTotal
     ]);
 
-    // 2. Upload File to Drive
+    // 2. FILE MANAGEMENT: Save Portfolio PDF
     if (data.movFile && data.movFile.data) {
       var folder = DriveApp.getFolderById(FOLDER_ID);
-      var contentType = data.movFile.mimeType;
       var bytes = Utilities.base64Decode(data.movFile.data);
-      var blob = Utilities.newBlob(bytes, contentType, data.movFile.name);
+      var blob = Utilities.newBlob(bytes, data.movFile.mimeType, data.movFile.name);
       folder.createFile(blob);
     }
 
     return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
   } catch (err) {
+    Logger.log("Critical Error: " + err.toString());
     return ContentService.createTextOutput("Error: " + err.toString()).setMimeType(ContentService.MimeType.TEXT);
   }
 }
 
 function authorizeMe() {
+  // EXECUTE THIS FUNCTION ONCE MANUALLY
   DriveApp.getRootFolder();
   SpreadsheetApp.getActiveSpreadsheet();
+  Logger.log("Authorization Flow Finalized.");
 }`}
                 </pre>
               </div>
             </div>
-            <div className="p-8 border-t border-slate-100 text-center">
-              <button onClick={() => setShowInstructions(false)} className="px-12 py-4 bg-slate-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest">
-                I've Updated my Script
+            
+            <div className="p-10 border-t border-white/5 text-center bg-black/20">
+              <button onClick={() => setShowInstructions(false)} className="px-20 py-6 bg-white text-slate-900 rounded-[2rem] font-black text-[12px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-2xl">
+                Ready to Sync
               </button>
             </div>
           </div>
         </div>
       )}
-
-      <main className="max-w-7xl mx-auto px-6 mt-12 grid grid-cols-1 lg:grid-cols-12 gap-12">
-        <aside className="lg:col-span-3">
-          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 sticky top-32 space-y-10 shadow-sm">
-            <div className="space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-7 bg-indigo-600 rounded-full"></div>
-                <h2 className="text-xs font-black text-slate-800 uppercase tracking-widest">Nominee Profile</h2>
-              </div>
-              
-              <div className="space-y-5">
-                <div>
-                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-2 tracking-widest ml-1">Division</label>
-                  <select 
-                    className={`w-full p-4 bg-slate-50 border rounded-2xl text-[11px] font-black outline-none transition-all ${showValidationErrors && !data.division ? 'border-red-200 ring-4 ring-red-50' : 'border-slate-100 focus:bg-white focus:ring-4 focus:ring-indigo-50'}`}
-                    value={data.division}
-                    onChange={e => setData({...data, division: e.target.value})}
-                  >
-                    <option value="">Select Division</option>
-                    {NCR_DIVISIONS.map(div => <option key={div} value={div}>{div}</option>)}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-2 tracking-widest ml-1">School Name</label>
-                  <input 
-                    type="text" placeholder="Complete Name" 
-                    className={`w-full p-4 bg-slate-50 border rounded-2xl text-[11px] font-black outline-none transition-all ${showValidationErrors && !data.schoolName.trim() ? 'border-red-200 ring-4 ring-red-50' : 'border-slate-100 focus:bg-white focus:ring-4 focus:ring-indigo-50'}`}
-                    value={data.schoolName}
-                    onChange={e => setData({...data, schoolName: e.target.value})}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-2 tracking-widest ml-1">Candidate Name</label>
-                  <input 
-                    type="text" placeholder="Nominee's Full Name" 
-                    className={`w-full p-4 bg-slate-50 border rounded-2xl text-[11px] font-black outline-none transition-all ${showValidationErrors && !data.candidateName.trim() ? 'border-red-200 ring-4 ring-red-50' : 'border-slate-100 focus:bg-white focus:ring-4 focus:ring-indigo-50'}`}
-                    value={data.candidateName}
-                    onChange={e => setData({...data, candidateName: e.target.value})}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-3 tracking-widest ml-1">Consolidated PDF</label>
-                  <div className={`relative border-2 border-dashed rounded-[1.5rem] p-6 text-center group cursor-pointer transition-all ${data.movFile ? 'border-emerald-200 bg-emerald-50' : (showValidationErrors && !data.movFile ? 'border-red-200 bg-red-50 animate-pulse' : 'border-slate-100 hover:border-indigo-300 bg-slate-50')}`}>
-                    <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileUpload} />
-                    <i className={`fas ${data.movFile ? 'fa-check-circle text-emerald-500' : 'fa-file-pdf text-slate-300'} text-3xl mb-3`}></i>
-                    <p className={`text-[9px] font-black uppercase tracking-widest truncate px-2 ${data.movFile ? 'text-emerald-700' : 'text-slate-400'}`}>
-                      {data.movFile ? data.movFile.name : 'Choose File'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <nav className="space-y-3 pt-8 border-t border-slate-50">
-              {[
-                { id: 'basic', label: 'Summary', icon: 'fa-chart-bar' },
-                { id: 'contests', label: 'Journalism', icon: 'fa-feather' },
-                { id: 'leadership', label: 'Leadership', icon: 'fa-star' },
-                { id: 'services', label: 'Extension', icon: 'fa-flask' },
-                { id: 'interview', label: 'Interview', icon: 'fa-microphone' }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-left text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100' : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-600'}`}
-                >
-                  <i className={`fas ${tab.icon} w-5 text-center`}></i>
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
-          </div>
-        </aside>
-
-        <section className="lg:col-span-9 space-y-12 pb-20 no-scrollbar">
-          {activeTab === 'basic' && (
-            <div className="space-y-10 animate-in fade-in duration-500">
-              <div className="elegant-card p-12 rounded-[3.5rem] shadow-sm">
-                <div className="flex items-center gap-6 mb-12">
-                  <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center text-3xl">
-                    <i className="fas fa-trophy"></i>
-                  </div>
-                  <div>
-                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">OSPA Evaluation Matrix</h2>
-                    <p className="text-slate-400 text-sm font-medium">Ratings for the last 5 years based on DepEd performance guidelines.</p>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                  {data.performanceRatings.map((entry) => (
-                    <div key={entry.year} className="p-8 bg-slate-50/50 rounded-[2.5rem] border border-slate-100 group transition-all hover:border-indigo-200">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">{entry.year}</label>
-                      <input 
-                        type="number" step="0.001"
-                        className="w-full bg-transparent text-3xl font-black text-slate-900 outline-none group-focus-within:text-indigo-600"
-                        value={entry.score}
-                        onChange={(e) => {
-                           const val = parseFloat(e.target.value) || 0;
-                           setData(prev => ({
-                             ...prev,
-                             performanceRatings: prev.performanceRatings.map(r => r.year === entry.year ? { ...r, score: val } : r)
-                           }));
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-12 p-12 bg-slate-900 rounded-[3rem] flex items-center justify-between text-white shadow-3xl shadow-slate-200/20">
-                  <div className="flex items-center gap-10">
-                    <div className="w-20 h-20 bg-white/10 rounded-[1.5rem] flex items-center justify-center text-4xl">
-                      <i className="fas fa-calculator"></i>
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">5-Year Aggregate Average</p>
-                      <p className="text-6xl font-black tabular-nums tracking-tighter">{averageRating.toFixed(3)}</p>
-                    </div>
-                  </div>
-                  <div className="px-10 py-5 bg-indigo-600 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest shadow-lg">
-                    {averageRating >= 4.5 ? 'Outstanding' : 'Very Satisfactory'}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-                {[
-                  { label: 'Journalism', value: (totals.indiv + totals.group + totals.special + totals.pub).toFixed(2), icon: 'fa-feather-pointed', color: 'bg-amber-500' },
-                  { label: 'Leadership', value: totals.leadershipTotal.toFixed(2), icon: 'fa-certificate', color: 'bg-indigo-500' },
-                  { label: 'Extension', value: (totals.extension + totals.innovations + totals.speakership + totals.books + totals.articles).toFixed(2), icon: 'fa-microscope', color: 'bg-emerald-500' },
-                  { label: 'Interview', value: totals.interviewTotal.toFixed(2), icon: 'fa-comment-dots', color: 'bg-blue-500' }
-                ].map((stat, i) => (
-                  <div key={i} className="elegant-card p-10 rounded-[3rem] transition-all hover:-translate-y-2 group shadow-sm">
-                    <div className={`w-16 h-16 ${stat.color} bg-opacity-10 ${stat.color.replace('bg-', 'text-')} rounded-2xl flex items-center justify-center mb-8 text-3xl group-hover:scale-110 transition-all`}>
-                      <i className={`fas ${stat.icon}`}></i>
-                    </div>
-                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">{stat.label}</p>
-                    <p className="text-4xl font-black text-slate-900 tabular-nums">{stat.value}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'contests' && (
-            <div className="space-y-4 animate-in fade-in duration-500">
-               {renderAchievementSection('1. Individual Journalism Contests', 'individualContests', [Rank.FIRST, Rank.SECOND, Rank.THIRD, Rank.FOURTH, Rank.FIFTH, Rank.SIXTH, Rank.SEVENTH], [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
-               {renderAchievementSection('2. Group Journalism Contests', 'groupContests', [Rank.FIRST, Rank.SECOND, Rank.THIRD, Rank.FOURTH, Rank.FIFTH, Rank.SIXTH, Rank.SEVENTH], [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
-               {renderAchievementSection('2.1 Special Awards (Group)', 'specialAwards', [Rank.FIRST, Rank.SECOND, Rank.THIRD, Rank.FOURTH, Rank.FIFTH, Rank.SIXTH, Rank.SEVENTH], [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
-               {renderAchievementSection('3. School Publication Contests', 'publicationContests', [Rank.FIRST, Rank.SECOND, Rank.THIRD, Rank.FOURTH, Rank.FIFTH, Rank.SIXTH, Rank.SEVENTH], [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
-            </div>
-          )}
-
-          {activeTab === 'leadership' && (
-            <div className="elegant-card p-12 rounded-[3.5rem] animate-in fade-in border border-slate-100 shadow-sm">
-              {renderSectionHeader('Leadership & Organizations', 'fa-award', totals.leadershipTotal.toFixed(2), 'bg-indigo-500')}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-12 p-10 bg-slate-50/50 rounded-[2.5rem] border border-slate-100">
-                 <div className="space-y-2">
-                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-2">Level</label>
-                   <select id="lead-lvl" className="w-full p-4.5 bg-white border border-slate-100 rounded-2xl text-[11px] font-black outline-none">
-                     <option value={Level.NATIONAL}>National</option>
-                     <option value={Level.REGIONAL}>Regional</option>
-                     <option value={Level.DIVISION}>Division</option>
-                   </select>
-                </div>
-                <div className="space-y-2">
-                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-2">Position</label>
-                   <select id="lead-pos" className="w-full p-4.5 bg-white border border-slate-100 rounded-2xl text-[11px] font-black outline-none">
-                     <option value={Position.PRESIDENT}>President</option>
-                     <option value={Position.VICE_PRESIDENT}>Vice President</option>
-                     <option value={Position.OTHER}>Other Officer</option>
-                   </select>
-                </div>
-                <div className="md:col-span-2 flex items-end">
-                   <button 
-                     onClick={() => {
-                        const lvl = (document.getElementById('lead-lvl') as HTMLSelectElement).value as Level;
-                        const pos = (document.getElementById('lead-pos') as HTMLSelectElement).value as Position;
-                        addItem('leadership', { level: lvl, position: pos });
-                     }}
-                     className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-200"
-                   >
-                     Record Leadership Role
-                   </button>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {data.leadership.map(item => (
-                  <div key={item.id} className="flex justify-between items-center p-8 bg-white rounded-[2rem] border border-slate-100 group transition-all hover:border-indigo-300">
-                    <div className="flex items-center gap-8">
-                      <div className="w-16 h-16 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center text-3xl group-hover:bg-indigo-50 group-hover:text-indigo-600">
-                        <i className="fas fa-medal"></i>
-                      </div>
-                      <div>
-                        <p className="font-black text-slate-800 text-lg tracking-tight">{item.position}</p>
-                        <p className="text-[11px] text-indigo-500 font-black uppercase tracking-widest mt-1">{item.level} Level</p>
-                      </div>
-                    </div>
-                    <button onClick={() => removeItem('leadership', item.id)} className="w-14 h-14 flex items-center justify-center text-red-200 hover:text-red-500 transition-all">
-                      <i className="fas fa-times-circle text-3xl"></i>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'services' && (
-            <div className="space-y-6 animate-in fade-in">
-               {renderServiceSection('5. Extension Services (Facilitator)', 'extensionServices', [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
-               {renderServiceSection('Innovations & Advocacy', 'innovations', [Level.NATIONAL, Level.REGIONAL, Level.DIVISION, Level.DISTRICT, Level.SCHOOL])}
-               {renderServiceSection('6. Resource Speakership', 'speakership', [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
-               {renderServiceSection('7. Modules & Books Published', 'publishedBooks', [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
-               {renderServiceSection('8. Published Research Articles', 'publishedArticles', [Level.NATIONAL, Level.REGIONAL, Level.DIVISION])}
-            </div>
-          )}
-
-          {activeTab === 'interview' && (
-            <div className="elegant-card p-12 rounded-[3.5rem] animate-in fade-in border border-slate-100 shadow-sm">
-              {renderSectionHeader('Interview Scores', 'fa-user-check', totals.interviewTotal.toFixed(2), 'bg-blue-500')}
-              <div className="space-y-20 max-w-4xl mx-auto py-10">
-                {[
-                  { key: 'principles', label: 'Journalism Principles & Media Ethics' },
-                  { key: 'leadership', label: 'Leadership Qualities & Mentorship' },
-                  { key: 'engagement', label: 'School & Community Engagement' },
-                  { key: 'commitment', label: 'Professionalism & Dedication' },
-                  { key: 'communication', label: 'Communication Competence' }
-                ].map(indicator => (
-                  <div key={indicator.key} className="space-y-8">
-                    <div className="flex justify-between items-end">
-                      <label className="font-black text-slate-700 text-xs uppercase tracking-widest leading-relaxed">{indicator.label}</label>
-                      <div className="px-6 py-3 bg-blue-50 text-blue-600 rounded-[1.5rem] text-sm font-black tabular-nums shadow-sm">
-                        {data.interview[indicator.key as keyof InterviewScores].toFixed(1)} / 1.0
-                      </div>
-                    </div>
-                    <input 
-                      type="range" min="0" max="1" step="0.1" 
-                      value={data.interview[indicator.key as keyof InterviewScores]}
-                      onChange={e => setData({ ...data, interview: { ...data.interview, [indicator.key]: parseFloat(e.target.value) } })}
-                      className="w-full h-3 bg-slate-100 rounded-full appearance-none cursor-pointer accent-blue-600 transition-all hover:bg-blue-50"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
-      </main>
     </div>
   );
 };
