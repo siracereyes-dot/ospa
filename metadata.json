@@ -1,0 +1,5 @@
+{
+  "name": "OSPA Scorer - Outstanding School Paper Adviser",
+  "description": "A comprehensive scoring system for the Search for Outstanding School Paper Adviser (OSPA) based on DepEd NCR guidelines, featuring automated weight calculations and achievement tracking.",
+  "requestFramePermissions": []
+}
