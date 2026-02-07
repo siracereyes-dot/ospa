@@ -162,7 +162,7 @@ const App: React.FC = () => {
     if (!isFormValid) {
       setShowValidationErrors(true);
       setActiveTab('basic');
-      alert("Missing information. Please complete the nominee profile and upload the MOV PDF.");
+      alert("Missing information. Please complete the nominee profile (Division, School, Name) and upload the MOV PDF.");
       return;
     }
 
@@ -237,7 +237,6 @@ const App: React.FC = () => {
     </div>
   );
 
-  // Moved helper to render achievement sections into component scope and fixed totals access
   const renderAchievementSection = (title: string, category: keyof OSPAScoreState, ranks: Rank[], levels: Level[]) => {
     const getWeightedValue = (cat: string) => {
       switch(cat) {
@@ -310,7 +309,6 @@ const App: React.FC = () => {
     );
   };
 
-  // Moved helper to render service sections into component scope and fixed totals access
   const renderServiceSection = (title: string, category: keyof OSPAScoreState, levels: Level[]) => {
     const getWeightedValue = (cat: string) => {
       switch(cat) {
@@ -402,7 +400,6 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 mt-10 grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Sidebar Nav */}
         <aside className="lg:col-span-3">
           <div className="bg-white rounded-3xl p-6 border border-slate-100 sticky top-28 space-y-8">
             <div className="space-y-6">
@@ -419,7 +416,16 @@ const App: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-2 tracking-widest ml-1">Full Name</label>
+                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-2 tracking-widest ml-1">School Name</label>
+                  <input 
+                    type="text" placeholder="Enter School Name" 
+                    className={`w-full p-3.5 bg-slate-50 border rounded-xl text-xs font-semibold outline-none transition-all ${showValidationErrors && !data.schoolName.trim() ? 'border-red-200 bg-red-50' : 'border-slate-100 focus:bg-white focus:ring-4 focus:ring-indigo-50'}`}
+                    value={data.schoolName}
+                    onChange={e => setData({...data, schoolName: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-2 tracking-widest ml-1">Nominee Full Name</label>
                   <input 
                     type="text" placeholder="Last Name, First Name" 
                     className={`w-full p-3.5 bg-slate-50 border rounded-xl text-xs font-semibold outline-none transition-all ${showValidationErrors && !data.candidateName.trim() ? 'border-red-200 bg-red-50' : 'border-slate-100 focus:bg-white focus:ring-4 focus:ring-indigo-50'}`}
@@ -460,7 +466,6 @@ const App: React.FC = () => {
           </div>
         </aside>
 
-        {/* Content Area */}
         <section className="lg:col-span-9 space-y-8 no-scrollbar">
           {activeTab === 'basic' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
