@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { 
   OSPAScoreState, 
@@ -19,7 +20,6 @@ const NCR_DIVISIONS = [
   "Quezon City", "San Juan", "Taguig City and Pateros (TAPAT)", "Valenzuela"
 ];
 
-// Updated SCRIPT_URL
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyar3ji86tD3WubBdAq8aR_zFp-gkzhcyYFtayBuTdFZpoCxpZmyR-7B5Wpbg_9M20D/exec";
 
 const INITIAL_STATE: OSPAScoreState = {
@@ -58,6 +58,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('basic');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
 
   const averageRating = useMemo(() => {
     const sum = data.performanceRatings.reduce((acc, curr) => acc + curr.score, 0);
@@ -131,17 +132,14 @@ const App: React.FC = () => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
     if (file.size > 15 * 1024 * 1024) {
-      alert("File is too large! Please keep your consolidated PDF under 15MB for faster uploading.");
+      alert("File is too large! Keep under 15MB.");
       return;
     }
-
     if (file.type !== 'application/pdf') {
       alert("Please upload a PDF document.");
       return;
     }
-
     const reader = new FileReader();
     reader.onload = () => {
       const base64String = (reader.result as string).split(',')[1];
@@ -154,7 +152,6 @@ const App: React.FC = () => {
         }
       }));
     };
-    reader.onerror = () => alert("Error reading file. Please try again.");
     reader.readAsDataURL(file);
   };
 
@@ -162,7 +159,7 @@ const App: React.FC = () => {
     if (!isFormValid) {
       setShowValidationErrors(true);
       setActiveTab('basic');
-      alert("⚠️ Profile Data Required: Division, School Name, Nominee Name, and Portfolio (PDF) must be provided.");
+      alert("⚠️ Required Info Missing: Profile data and PDF portfolio are required.");
       return;
     }
 
@@ -196,12 +193,11 @@ const App: React.FC = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-      
-      alert(`✅ Submission Successful!\n\nNominee: ${data.candidateName}\n\nData has been sent to the Google Sheet. If the PDF doesn't appear in Drive, ensure you have authorized DriveApp in the Script Editor.`);
+      alert(`✅ Upload Triggered!\n\nNominee: ${data.candidateName}\n\nData sent to Google Sheet. Check your Drive folder in a few moments for the PDF.`);
       setShowValidationErrors(false);
     } catch (error: any) {
       console.error("Submission Error:", error);
-      alert("❌ Submission Failed. Check your internet connection or the Google Script URL.");
+      alert("❌ Submission Failed. Check your SCRIPT_URL or network connection.");
     } finally {
       setIsSubmitting(false);
     }
@@ -269,7 +265,7 @@ const App: React.FC = () => {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">SY / Year</label>
+            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1">Year</label>
             <input id={`${category}-yr`} type="text" placeholder="e.g. 2024" className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-[11px] font-black outline-none focus:ring-4 focus:ring-indigo-50" />
           </div>
           <div className="flex items-end">
@@ -283,9 +279,9 @@ const App: React.FC = () => {
                    (document.getElementById(`${category}-yr`) as HTMLInputElement).value = '';
                  }
               }}
-              className="w-full bg-slate-900 text-white p-4 rounded-2xl hover:bg-black transition-all font-black text-[10px] uppercase tracking-widest"
+              className="w-full bg-slate-900 text-white p-4 rounded-2xl hover:bg-black transition-all font-black text-[10px] uppercase tracking-widest shadow-lg"
             >
-              Add Entry
+              Add Award
             </button>
           </div>
         </div>
@@ -296,7 +292,7 @@ const App: React.FC = () => {
                 <th className="py-4 px-2">Level</th>
                 <th className="py-4 px-2">Rank</th>
                 <th className="py-4 px-2">Year</th>
-                <th className="py-4 px-2 text-right">Action</th>
+                <th className="py-4 px-2 text-right">Delete</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -313,7 +309,7 @@ const App: React.FC = () => {
                 </tr>
               ))}
               {(data[category] as Achievement[]).length === 0 && (
-                <tr><td colSpan={4} className="py-12 text-center text-slate-300 text-xs italic">No awards recorded.</td></tr>
+                <tr><td colSpan={4} className="py-12 text-center text-slate-300 text-xs italic">No entries added to this category.</td></tr>
               )}
             </tbody>
           </table>
@@ -352,9 +348,9 @@ const App: React.FC = () => {
                  const lvl = (document.getElementById(`${category}-slvl`) as HTMLSelectElement).value as Level;
                  addItem(category, { level: lvl });
               }}
-              className="w-full bg-slate-900 text-white p-4 rounded-2xl hover:bg-black transition-all font-black text-[10px] uppercase tracking-widest"
+              className="w-full bg-slate-900 text-white p-4 rounded-2xl hover:bg-black transition-all font-black text-[10px] uppercase tracking-widest shadow-lg"
             >
-              Add Record
+              Add Entry
             </button>
           </div>
         </div>
@@ -363,7 +359,7 @@ const App: React.FC = () => {
             <thead>
               <tr className="border-b border-slate-100 text-slate-400 text-[9px] font-bold uppercase tracking-widest">
                 <th className="py-4 px-2">Level</th>
-                <th className="py-4 px-2 text-right">Action</th>
+                <th className="py-4 px-2 text-right">Delete</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -378,7 +374,7 @@ const App: React.FC = () => {
                 </tr>
               ))}
               {(data[category] as ServiceEntry[]).length === 0 && (
-                <tr><td colSpan={2} className="py-12 text-center text-slate-300 text-xs italic">No records found.</td></tr>
+                <tr><td colSpan={2} className="py-12 text-center text-slate-300 text-xs italic">No records added.</td></tr>
               )}
             </tbody>
           </table>
@@ -401,8 +397,14 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="hidden md:flex items-center gap-12">
+            <button 
+              onClick={() => setShowInstructions(true)}
+              className="text-[10px] font-black uppercase text-indigo-600 tracking-widest hover:underline"
+            >
+              Setup Guide
+            </button>
             <div className="text-right">
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Current Grand Total</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Grand Total</p>
               <p className="text-4xl font-black text-indigo-600 tabular-nums leading-none tracking-tighter">{totals.grandTotal.toFixed(2)}</p>
             </div>
             <button 
@@ -410,12 +412,83 @@ const App: React.FC = () => {
               disabled={isSubmitting}
               className={`px-12 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center gap-3 ${isSubmitting ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none' : 'bg-slate-900 text-white hover:bg-black hover:scale-[1.02] active:scale-95 shadow-2xl shadow-slate-200'}`}
             >
-              {isSubmitting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-paper-plane"></i>}
-              {isSubmitting ? 'Submitting...' : 'Send Records'}
+              {isSubmitting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-cloud-arrow-up"></i>}
+              {isSubmitting ? 'Submitting...' : 'Upload Data'}
             </button>
           </div>
         </div>
       </header>
+
+      {showInstructions && (
+        <div className="fixed inset-0 z-[1000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[3rem] shadow-3xl overflow-hidden flex flex-col">
+            <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h2 className="text-2xl font-black text-slate-900">Google Side Configuration</h2>
+              <button onClick={() => setShowInstructions(false)} className="w-12 h-12 bg-white rounded-2xl text-slate-400 hover:text-slate-900 shadow-sm border border-slate-100">
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="p-10 overflow-y-auto space-y-8 no-scrollbar">
+              <div className="p-8 bg-indigo-50 border border-indigo-100 rounded-[2rem] space-y-4">
+                <p className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">Important Setup Instructions</p>
+                <p className="text-sm text-indigo-900 font-medium leading-relaxed">
+                  To ensure the PDF is saved to your Drive, your Google Apps Script MUST have access to Drive. 
+                  Replace your entire script with the code below, update the <code className="bg-white px-2 py-0.5 rounded text-indigo-600">FOLDER_ID</code>, and run <code className="bg-white px-2 py-0.5 rounded text-indigo-600">authorizeMe</code> function once.
+                </p>
+              </div>
+              <div className="relative">
+                <pre className="p-6 bg-slate-900 text-emerald-400 text-xs rounded-3xl overflow-x-auto font-mono leading-relaxed h-[400px]">
+{`var FOLDER_ID = "PASTE_YOUR_FOLDER_ID_HERE"; 
+
+function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    
+    // 1. Append to Sheet
+    sheet.appendRow([
+      data.timestamp,
+      data.division,
+      data.schoolName,
+      data.candidateName,
+      data.averageRating,
+      data.details.journalism,
+      data.details.leadership,
+      data.details.extensions,
+      data.details.interview,
+      data.grandTotal
+    ]);
+
+    // 2. Upload File to Drive
+    if (data.movFile && data.movFile.data) {
+      var folder = DriveApp.getFolderById(FOLDER_ID);
+      var contentType = data.movFile.mimeType;
+      var bytes = Utilities.base64Decode(data.movFile.data);
+      var blob = Utilities.newBlob(bytes, contentType, data.movFile.name);
+      folder.createFile(blob);
+    }
+
+    return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
+  } catch (err) {
+    return ContentService.createTextOutput("Error: " + err.toString()).setMimeType(ContentService.MimeType.TEXT);
+  }
+}
+
+function authorizeMe() {
+  DriveApp.getRootFolder();
+  SpreadsheetApp.getActiveSpreadsheet();
+}`}
+                </pre>
+              </div>
+            </div>
+            <div className="p-8 border-t border-slate-100 text-center">
+              <button onClick={() => setShowInstructions(false)} className="px-12 py-4 bg-slate-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest">
+                I've Updated my Script
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto px-6 mt-12 grid grid-cols-1 lg:grid-cols-12 gap-12">
         <aside className="lg:col-span-3">
@@ -423,7 +496,7 @@ const App: React.FC = () => {
             <div className="space-y-6">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-7 bg-indigo-600 rounded-full"></div>
-                <h2 className="text-xs font-black text-slate-800 uppercase tracking-widest">Profile Identity</h2>
+                <h2 className="text-xs font-black text-slate-800 uppercase tracking-widest">Nominee Profile</h2>
               </div>
               
               <div className="space-y-5">
@@ -442,7 +515,7 @@ const App: React.FC = () => {
                 <div>
                   <label className="text-[9px] font-bold text-slate-400 uppercase block mb-2 tracking-widest ml-1">School Name</label>
                   <input 
-                    type="text" placeholder="Full School Name" 
+                    type="text" placeholder="Complete Name" 
                     className={`w-full p-4 bg-slate-50 border rounded-2xl text-[11px] font-black outline-none transition-all ${showValidationErrors && !data.schoolName.trim() ? 'border-red-200 ring-4 ring-red-50' : 'border-slate-100 focus:bg-white focus:ring-4 focus:ring-indigo-50'}`}
                     value={data.schoolName}
                     onChange={e => setData({...data, schoolName: e.target.value})}
@@ -450,7 +523,7 @@ const App: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-2 tracking-widest ml-1">Nominee Name</label>
+                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-2 tracking-widest ml-1">Candidate Name</label>
                   <input 
                     type="text" placeholder="Nominee's Full Name" 
                     className={`w-full p-4 bg-slate-50 border rounded-2xl text-[11px] font-black outline-none transition-all ${showValidationErrors && !data.candidateName.trim() ? 'border-red-200 ring-4 ring-red-50' : 'border-slate-100 focus:bg-white focus:ring-4 focus:ring-indigo-50'}`}
@@ -460,12 +533,12 @@ const App: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-3 tracking-widest ml-1">Consolidated Portfolio (PDF)</label>
+                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-3 tracking-widest ml-1">Consolidated PDF</label>
                   <div className={`relative border-2 border-dashed rounded-[1.5rem] p-6 text-center group cursor-pointer transition-all ${data.movFile ? 'border-emerald-200 bg-emerald-50' : (showValidationErrors && !data.movFile ? 'border-red-200 bg-red-50 animate-pulse' : 'border-slate-100 hover:border-indigo-300 bg-slate-50')}`}>
                     <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileUpload} />
                     <i className={`fas ${data.movFile ? 'fa-check-circle text-emerald-500' : 'fa-file-pdf text-slate-300'} text-3xl mb-3`}></i>
                     <p className={`text-[9px] font-black uppercase tracking-widest truncate px-2 ${data.movFile ? 'text-emerald-700' : 'text-slate-400'}`}>
-                      {data.movFile ? data.movFile.name : 'Select PDF'}
+                      {data.movFile ? data.movFile.name : 'Choose File'}
                     </p>
                   </div>
                 </div>
@@ -474,11 +547,11 @@ const App: React.FC = () => {
 
             <nav className="space-y-3 pt-8 border-t border-slate-50">
               {[
-                { id: 'basic', label: 'Summary', icon: 'fa-chart-pie' },
-                { id: 'contests', label: 'Journalism', icon: 'fa-trophy' },
-                { id: 'leadership', label: 'Leadership', icon: 'fa-user-tie' },
-                { id: 'services', label: 'Research', icon: 'fa-microscope' },
-                { id: 'interview', label: 'Interview', icon: 'fa-comments' }
+                { id: 'basic', label: 'Summary', icon: 'fa-chart-bar' },
+                { id: 'contests', label: 'Journalism', icon: 'fa-feather' },
+                { id: 'leadership', label: 'Leadership', icon: 'fa-star' },
+                { id: 'services', label: 'Extension', icon: 'fa-flask' },
+                { id: 'interview', label: 'Interview', icon: 'fa-microphone' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -499,11 +572,11 @@ const App: React.FC = () => {
               <div className="elegant-card p-12 rounded-[3.5rem] shadow-sm">
                 <div className="flex items-center gap-6 mb-12">
                   <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center text-3xl">
-                    <i className="fas fa-star-half-stroke"></i>
+                    <i className="fas fa-trophy"></i>
                   </div>
                   <div>
-                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">Performance Ratings</h2>
-                    <p className="text-slate-400 text-sm font-medium">Ratings for the previous five (5) evaluation periods.</p>
+                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">OSPA Evaluation Matrix</h2>
+                    <p className="text-slate-400 text-sm font-medium">Ratings for the last 5 years based on DepEd performance guidelines.</p>
                   </div>
                 </div>
                 
@@ -545,10 +618,10 @@ const App: React.FC = () => {
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
                 {[
-                  { label: 'Journalism', value: (totals.indiv + totals.group + totals.special + totals.pub).toFixed(2), icon: 'fa-pen-nib', color: 'bg-amber-500' },
-                  { label: 'Leadership', value: totals.leadershipTotal.toFixed(2), icon: 'fa-user-tie', color: 'bg-indigo-500' },
-                  { label: 'Research', value: (totals.extension + totals.innovations + totals.speakership + totals.books + totals.articles).toFixed(2), icon: 'fa-book-open', color: 'bg-emerald-500' },
-                  { label: 'Interview', value: totals.interviewTotal.toFixed(2), icon: 'fa-comments', color: 'bg-blue-500' }
+                  { label: 'Journalism', value: (totals.indiv + totals.group + totals.special + totals.pub).toFixed(2), icon: 'fa-feather-pointed', color: 'bg-amber-500' },
+                  { label: 'Leadership', value: totals.leadershipTotal.toFixed(2), icon: 'fa-certificate', color: 'bg-indigo-500' },
+                  { label: 'Extension', value: (totals.extension + totals.innovations + totals.speakership + totals.books + totals.articles).toFixed(2), icon: 'fa-microscope', color: 'bg-emerald-500' },
+                  { label: 'Interview', value: totals.interviewTotal.toFixed(2), icon: 'fa-comment-dots', color: 'bg-blue-500' }
                 ].map((stat, i) => (
                   <div key={i} className="elegant-card p-10 rounded-[3rem] transition-all hover:-translate-y-2 group shadow-sm">
                     <div className={`w-16 h-16 ${stat.color} bg-opacity-10 ${stat.color.replace('bg-', 'text-')} rounded-2xl flex items-center justify-center mb-8 text-3xl group-hover:scale-110 transition-all`}>
@@ -573,7 +646,7 @@ const App: React.FC = () => {
 
           {activeTab === 'leadership' && (
             <div className="elegant-card p-12 rounded-[3.5rem] animate-in fade-in border border-slate-100 shadow-sm">
-              {renderSectionHeader('Leadership Portfolio', 'fa-award', totals.leadershipTotal.toFixed(2), 'bg-indigo-500')}
+              {renderSectionHeader('Leadership & Organizations', 'fa-award', totals.leadershipTotal.toFixed(2), 'bg-indigo-500')}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-12 p-10 bg-slate-50/50 rounded-[2.5rem] border border-slate-100">
                  <div className="space-y-2">
                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-2">Level</label>
@@ -600,7 +673,7 @@ const App: React.FC = () => {
                      }}
                      className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-200"
                    >
-                     Add Leadership Role
+                     Record Leadership Role
                    </button>
                 </div>
               </div>
@@ -610,7 +683,7 @@ const App: React.FC = () => {
                   <div key={item.id} className="flex justify-between items-center p-8 bg-white rounded-[2rem] border border-slate-100 group transition-all hover:border-indigo-300">
                     <div className="flex items-center gap-8">
                       <div className="w-16 h-16 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center text-3xl group-hover:bg-indigo-50 group-hover:text-indigo-600">
-                        <i className="fas fa-certificate"></i>
+                        <i className="fas fa-medal"></i>
                       </div>
                       <div>
                         <p className="font-black text-slate-800 text-lg tracking-tight">{item.position}</p>
@@ -638,7 +711,7 @@ const App: React.FC = () => {
 
           {activeTab === 'interview' && (
             <div className="elegant-card p-12 rounded-[3.5rem] animate-in fade-in border border-slate-100 shadow-sm">
-              {renderSectionHeader('Behavioral Interview', 'fa-microphone', totals.interviewTotal.toFixed(2), 'bg-blue-500')}
+              {renderSectionHeader('Interview Scores', 'fa-user-check', totals.interviewTotal.toFixed(2), 'bg-blue-500')}
               <div className="space-y-20 max-w-4xl mx-auto py-10">
                 {[
                   { key: 'principles', label: 'Journalism Principles & Media Ethics' },
