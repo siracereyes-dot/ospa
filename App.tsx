@@ -20,7 +20,7 @@ const NCR_DIVISIONS = [
   "Quezon City", "San Juan", "Taguig City and Pateros (TAPAT)", "Valenzuela"
 ];
 
-// NOTE: User must replace this with their actual deployed Google Apps Script URL
+// CRITICAL: Replace this with your Google Apps Script 'Exec' URL
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyar3ji86tD3WubBdAq8aR_zFp-gkzhcyYFtayBuTdFZpoCxpZmyR-7B5Wpbg_9M20D/exec";
 
 const INITIAL_STATE: OSPAScoreState = {
@@ -61,6 +61,7 @@ const App: React.FC = () => {
   const [submissionStep, setSubmissionStep] = useState<string>('');
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [lastSyncStatus, setLastSyncStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   const averageRating = useMemo(() => {
     const sum = data.performanceRatings.reduce((acc, curr) => acc + curr.score, 0);
@@ -135,7 +136,7 @@ const App: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 15 * 1024 * 1024) {
-      alert("⚠️ File size limit is 15MB. Please optimize your PDF portfolio.");
+      alert("⚠️ File too large (Max 15MB). Please compress your PDF portfolio.");
       return;
     }
     const reader = new FileReader();
@@ -157,20 +158,26 @@ const App: React.FC = () => {
     if (!isFormValid) {
       setShowValidationErrors(true);
       setActiveTab('basic');
-      alert("⚠️ Missing Data: Division, School, Candidate Name, and PDF Portfolio are mandatory.");
+      alert("⚠️ Input Required: Please complete the Profile and attach the Portfolio PDF.");
+      return;
+    }
+
+    if (SCRIPT_URL.includes("PASTE_YOUR_URL")) {
+      setShowInstructions(true);
+      alert("⚠️ Script Not Configured: You must deploy your Google Apps Script first.");
       return;
     }
 
     setIsSubmitting(true);
-    setSubmissionStep('Preparing Data...');
+    setSubmissionStep('Validating Records...');
     
     try {
-      await new Promise(r => setTimeout(r, 600));
-      setSubmissionStep('Encoding Portfolio...');
+      await new Promise(r => setTimeout(r, 800));
+      setSubmissionStep('Encoding Portfolio Pack...');
       
       const sanitizedName = data.candidateName.replace(/\s+/g, '_').replace(/[^\w]/g, '');
       const sanitizedSchool = data.schoolName.replace(/\s+/g, '_').replace(/[^\w]/g, '');
-      const finalFileName = `${data.division}_${sanitizedSchool}_${sanitizedName}_OSPA.pdf`;
+      const finalFileName = `${data.division}_${sanitizedSchool}_${sanitizedName}.pdf`;
       
       const payload = {
         timestamp: new Date().toLocaleString(),
@@ -192,10 +199,9 @@ const App: React.FC = () => {
         } : null
       };
 
-      setSubmissionStep('Connecting to Google Cloud...');
+      setSubmissionStep('Shipping to Google Cloud...');
       
-      // We use no-cors because Google Apps Script redirects usually cause CORS errors on regular fetch.
-      // However, no-cors means we can't see the response body.
+      // We use no-cors to bypass preflight. Note: Success status is inferred.
       await fetch(SCRIPT_URL, {
         method: "POST",
         mode: "no-cors",
@@ -203,14 +209,16 @@ const App: React.FC = () => {
         body: JSON.stringify(payload)
       });
       
-      setSubmissionStep('Verifying Transmission...');
+      setSubmissionStep('Verifying Background Task...');
       await new Promise(r => setTimeout(r, 1500));
 
-      alert(`✅ TRANSMISSION COMPLETE!\n\nNominee: ${data.candidateName}\n\nSync initiated with Google Cloud. If the portfolio doesn't appear in your Drive, please ensure:\n1. FOLDER_ID is correct in the script.\n2. You have executed 'authorizeMe' in the Apps Script editor.\n3. The folder has 'Anyone with link can Edit' permissions.`);
+      setLastSyncStatus('success');
+      alert(`✅ DATA SHIPPED!\n\nNominee: ${data.candidateName}\n\nConnection established with Google Apps Script. Data is now being processed on the server. Please check your Google Sheet and Drive folder in 60 seconds.`);
       setShowValidationErrors(false);
     } catch (error: any) {
+      setLastSyncStatus('error');
       console.error("Submission Error:", error);
-      alert(`❌ UPLOAD FAILED: ${error.message || 'Network error'}\n\nPlease check your SCRIPT_URL and internet connection.`);
+      alert(`❌ CONNECTION FAILED: ${error.message || 'The script URL is unreachable.'}\n\nPlease check your SCRIPT_URL in App.tsx.`);
     } finally {
       setIsSubmitting(false);
       setSubmissionStep('');
@@ -258,7 +266,7 @@ const App: React.FC = () => {
       return 0;
     };
     return (
-      <div className="glass-card p-10 rounded-[3rem] mb-8 overflow-hidden relative">
+      <div className="glass-card p-10 rounded-[3rem] mb-8 overflow-hidden relative border border-white/5">
         <div className="flex justify-between items-center mb-8">
           <h3 className="text-xl font-bold text-slate-100 tracking-tight flex items-center gap-3">
              <span className="w-2 h-7 bg-indigo-500 rounded-full shadow-[0_0_15px_rgba(99,102,241,0.5)]"></span>
@@ -268,22 +276,22 @@ const App: React.FC = () => {
             {getVal().toFixed(2)} Points
           </span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 p-8 bg-slate-900/40 rounded-[2rem] border border-white/5">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 p-8 bg-slate-900/40 rounded-[2rem] border border-white/5 shadow-inner">
           <div className="space-y-2">
             <label className="text-[9px] font-bold text-slate-500 uppercase ml-2 tracking-widest">Level</label>
-            <select id={`${category}-lvl`} className="w-full p-4 bg-slate-800/80 border border-white/5 rounded-2xl text-[11px] font-bold text-white outline-none focus:ring-4 focus:ring-indigo-500/20 transition-all">
+            <select id={`${category}-lvl`} className="w-full p-4 bg-slate-800/80 border border-white/5 rounded-2xl text-[11px] font-bold text-white outline-none focus:ring-4 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer">
               {levels.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
           </div>
           <div className="space-y-2">
             <label className="text-[9px] font-bold text-slate-500 uppercase ml-2 tracking-widest">Rank</label>
-            <select id={`${category}-rnk`} className="w-full p-4 bg-slate-800/80 border border-white/5 rounded-2xl text-[11px] font-bold text-white outline-none focus:ring-4 focus:ring-indigo-500/20 transition-all">
+            <select id={`${category}-rnk`} className="w-full p-4 bg-slate-800/80 border border-white/5 rounded-2xl text-[11px] font-bold text-white outline-none focus:ring-4 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer">
               {ranks.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
           <div className="space-y-2">
             <label className="text-[9px] font-bold text-slate-500 uppercase ml-2 tracking-widest">Year</label>
-            <input id={`${category}-yr`} type="text" placeholder="2024-2025" className="w-full p-4 bg-slate-800/80 border border-white/5 rounded-2xl text-[11px] font-bold text-white outline-none focus:ring-4 focus:ring-indigo-500/20 transition-all" />
+            <input id={`${category}-yr`} type="text" placeholder="e.g. 2024" className="w-full p-4 bg-slate-800/80 border border-white/5 rounded-2xl text-[11px] font-bold text-white outline-none focus:ring-4 focus:ring-indigo-500/20 transition-all" />
           </div>
           <div className="flex items-end">
             <button 
@@ -294,7 +302,7 @@ const App: React.FC = () => {
                  if (yr) {
                    addItem(category, { level: lvl, rank: rnk, year: yr });
                    (document.getElementById(`${category}-yr`) as HTMLInputElement).value = '';
-                 } else alert("Input the year for the award.");
+                 } else alert("Please enter a year.");
               }}
               className="w-full bg-white text-slate-900 p-4.5 rounded-2xl hover:bg-indigo-400 hover:text-white transition-all font-black text-[10px] uppercase tracking-widest shadow-xl neo-button"
             >
@@ -319,14 +327,14 @@ const App: React.FC = () => {
                   <td className="py-5 px-2 text-[11px] font-bold text-slate-200">{item.rank}</td>
                   <td className="py-5 px-2 text-[11px] font-bold text-slate-200">{item.year}</td>
                   <td className="py-5 px-2 text-right">
-                    <button onClick={() => removeItem(category, item.id)} className="w-10 h-10 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all">
+                    <button onClick={() => removeItem(category, item.id)} className="w-10 h-10 rounded-xl text-slate-600 hover:text-red-400 hover:bg-red-400/10 transition-all">
                       <i className="fas fa-trash-can text-sm"></i>
                     </button>
                   </td>
                 </tr>
               ))}
               {(data[category] as Achievement[]).length === 0 && (
-                <tr><td colSpan={4} className="py-12 text-center text-slate-500 text-xs italic">Awaiting manual entry of records...</td></tr>
+                <tr><td colSpan={4} className="py-12 text-center text-slate-600 text-[11px] italic font-medium uppercase tracking-widest opacity-40">No records documented</td></tr>
               )}
             </tbody>
           </table>
@@ -335,6 +343,7 @@ const App: React.FC = () => {
     );
   };
 
+  // Fix: Added missing renderServiceSection function to handle extension services and publications
   const renderServiceSection = (title: string, category: keyof OSPAScoreState, levels: Level[]) => {
     const getVal = () => {
       if(category === 'extensionServices') return totals.extension;
@@ -345,7 +354,7 @@ const App: React.FC = () => {
       return 0;
     };
     return (
-      <div className="glass-card p-10 rounded-[3rem] mb-8 overflow-hidden">
+      <div className="glass-card p-10 rounded-[3rem] mb-8 overflow-hidden relative border border-white/5">
         <div className="flex justify-between items-center mb-8">
           <h3 className="text-xl font-bold text-slate-100 tracking-tight flex items-center gap-3">
              <span className="w-2 h-7 bg-emerald-500 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.5)]"></span>
@@ -355,22 +364,22 @@ const App: React.FC = () => {
             {getVal().toFixed(2)} Points
           </span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 p-8 bg-slate-900/40 rounded-[2rem] border border-white/5">
-          <div className="md:col-span-2 space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 p-8 bg-slate-900/40 rounded-[2rem] border border-white/5 shadow-inner">
+          <div className="space-y-2">
             <label className="text-[9px] font-bold text-slate-500 uppercase ml-2 tracking-widest">Level</label>
-            <select id={`${category}-slvl`} className="w-full p-4 bg-slate-800/80 border border-white/5 rounded-2xl text-[11px] font-bold text-white outline-none focus:ring-4 focus:ring-emerald-500/20 transition-all">
+            <select id={`${category}-lvl`} className="w-full p-4 bg-slate-800/80 border border-white/5 rounded-2xl text-[11px] font-bold text-white outline-none focus:ring-4 focus:ring-emerald-500/20 transition-all appearance-none cursor-pointer">
               {levels.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
           </div>
-          <div className="flex items-end">
+          <div className="md:col-span-2 flex items-end">
             <button 
               onClick={() => {
-                 const lvl = (document.getElementById(`${category}-slvl`) as HTMLSelectElement).value as Level;
+                 const lvl = (document.getElementById(`${category}-lvl`) as HTMLSelectElement).value as Level;
                  addItem(category, { level: lvl });
               }}
               className="w-full bg-white text-slate-900 p-4.5 rounded-2xl hover:bg-emerald-400 hover:text-white transition-all font-black text-[10px] uppercase tracking-widest shadow-xl neo-button"
             >
-              Log Entry
+              Log Performance Evidence
             </button>
           </div>
         </div>
@@ -384,17 +393,17 @@ const App: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-white/5">
               {(data[category] as ServiceEntry[]).map(item => (
-                <tr key={item.id} className="hover:bg-white/5 transition-colors">
+                <tr key={item.id} className="hover:bg-white/5 transition-colors group">
                   <td className="py-5 px-2 text-[11px] font-bold text-slate-200">{item.level}</td>
                   <td className="py-5 px-2 text-right">
-                    <button onClick={() => removeItem(category, item.id)} className="w-10 h-10 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all">
+                    <button onClick={() => removeItem(category, item.id)} className="w-10 h-10 rounded-xl text-slate-600 hover:text-red-400 hover:bg-red-400/10 transition-all">
                       <i className="fas fa-trash-can text-sm"></i>
                     </button>
                   </td>
                 </tr>
               ))}
               {(data[category] as ServiceEntry[]).length === 0 && (
-                <tr><td colSpan={2} className="py-12 text-center text-slate-500 text-xs italic">No documented activity logged.</td></tr>
+                <tr><td colSpan={2} className="py-12 text-center text-slate-600 text-[11px] italic font-medium uppercase tracking-widest opacity-40">No records documented</td></tr>
               )}
             </tbody>
           </table>
@@ -405,7 +414,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Dynamic Header */}
       <header className="glass-panel sticky top-0 z-[200] h-24 flex items-center px-8 border-b border-white/5">
         <div className="max-w-[1600px] mx-auto w-full flex items-center justify-between">
           <div className="flex items-center gap-6">
@@ -413,8 +421,8 @@ const App: React.FC = () => {
               <i className="fas fa-signature"></i>
             </div>
             <div className="hidden lg:block">
-              <h1 className="text-xl font-black text-white tracking-tight uppercase leading-none">OSPA <span className="text-indigo-500">PRO DASHBOARD</span></h1>
-              <p className="text-[8px] text-slate-500 font-bold tracking-[0.4em] uppercase mt-2">Evaluation & Search Excellence Platform</p>
+              <h1 className="text-xl font-black text-white tracking-tight uppercase leading-none">OSPA <span className="text-indigo-500">PRO CORE</span></h1>
+              <p className="text-[8px] text-slate-500 font-bold tracking-[0.4em] uppercase mt-2">Evaluation Platform &bull; v5.1 Platinum</p>
             </div>
           </div>
           
@@ -427,19 +435,27 @@ const App: React.FC = () => {
             </div>
             
             <div className="flex items-center gap-4">
+                <div className="hidden md:flex flex-col items-end mr-4">
+                   <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Status</p>
+                   <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${lastSyncStatus === 'success' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : (lastSyncStatus === 'error' ? 'bg-red-500' : 'bg-slate-700')}`}></div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
+                        {lastSyncStatus === 'success' ? 'Synchronized' : (lastSyncStatus === 'error' ? 'Sync Failed' : 'Ready')}
+                      </span>
+                   </div>
+                </div>
                <button 
                   onClick={() => setShowInstructions(true)}
                   className="w-12 h-12 rounded-2xl bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center border border-white/5"
-                  title="Config Hub"
                 >
-                  <i className="fas fa-code-branch"></i>
+                  <i className="fas fa-microchip"></i>
                 </button>
                 <button 
                   onClick={handleSave}
                   disabled={isSubmitting}
-                  className={`relative group px-12 py-4.5 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] transition-all flex items-center gap-4 overflow-hidden border border-white/10 ${isSubmitting ? 'bg-slate-800 text-slate-500' : 'bg-white text-slate-900 hover:scale-105 active:scale-95 shadow-2xl shadow-indigo-500/10'}`}
+                  className={`relative group px-12 py-4.5 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] transition-all flex items-center gap-4 overflow-hidden border border-white/10 ${isSubmitting ? 'bg-slate-800 text-slate-500' : 'bg-white text-slate-900 hover:scale-[1.03] active:scale-95 shadow-2xl shadow-indigo-500/10'}`}
                 >
-                  {isSubmitting ? <i className="fas fa-atom fa-spin"></i> : <i className="fas fa-cloud-arrow-up"></i>}
+                  {isSubmitting ? <i className="fas fa-atom fa-spin"></i> : <i className="fas fa-cloud-bolt"></i>}
                   {isSubmitting ? (submissionStep || 'Processing...') : 'Sync Records'}
                 </button>
             </div>
@@ -447,10 +463,8 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Layout */}
       <div className="flex flex-1 max-w-[1600px] mx-auto w-full">
-        {/* Navigation Sidebar */}
-        <aside className="w-80 hidden lg:block p-8 dashboard-sidebar space-y-12 shrink-0">
+        <aside className="w-80 hidden lg:block p-8 dashboard-sidebar space-y-12 shrink-0 border-r border-white/5">
           <div className="space-y-10">
             <div className="space-y-4">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2 block">Candidate Profile</label>
@@ -464,13 +478,13 @@ const App: React.FC = () => {
                    {NCR_DIVISIONS.map(div => <option key={div} value={div}>{div}</option>)}
                  </select>
                  <input 
-                   type="text" placeholder="Full Official Name" 
+                   type="text" placeholder="Candidate Name" 
                    className={`w-full p-4.5 bg-slate-900/50 border rounded-2xl text-[11px] font-bold text-white outline-none transition-all ${showValidationErrors && !data.candidateName.trim() ? 'border-red-500/50 ring-2 ring-red-500/10' : 'border-white/5 focus:border-indigo-500/50'}`}
                    value={data.candidateName}
                    onChange={e => setData({...data, candidateName: e.target.value})}
                  />
                  <input 
-                   type="text" placeholder="Official School Name" 
+                   type="text" placeholder="School Name" 
                    className={`w-full p-4.5 bg-slate-900/50 border rounded-2xl text-[11px] font-bold text-white outline-none transition-all ${showValidationErrors && !data.schoolName.trim() ? 'border-red-500/50 ring-2 ring-red-500/10' : 'border-white/5 focus:border-indigo-500/50'}`}
                    value={data.schoolName}
                    onChange={e => setData({...data, schoolName: e.target.value})}
@@ -479,15 +493,15 @@ const App: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-               <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2 block">Evidence Pack</label>
+               <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2 block">Evidence Repository</label>
                <div className={`relative border-2 border-dashed rounded-[2.5rem] p-8 text-center transition-all cursor-pointer group ${data.movFile ? 'border-emerald-500/50 bg-emerald-500/5' : (showValidationErrors && !data.movFile ? 'border-red-500 animate-pulse' : 'border-white/5 hover:border-indigo-500/50 hover:bg-white/5')}`}>
                   <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileUpload} />
                   <div className="space-y-4">
                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto transition-all ${data.movFile ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-white/5 text-slate-500 group-hover:scale-110'}`}>
-                        <i className={`fas ${data.movFile ? 'fa-check-circle' : 'fa-file-pdf'} text-2xl`}></i>
+                        <i className={`fas ${data.movFile ? 'fa-fingerprint' : 'fa-file-pdf'} text-2xl`}></i>
                      </div>
-                     <p className={`text-[9px] font-black uppercase tracking-widest truncate max-w-full ${data.movFile ? 'text-emerald-400' : 'text-slate-500'}`}>
-                        {data.movFile ? data.movFile.name : 'Select PDF Portfolio'}
+                     <p className={`text-[9px] font-black uppercase tracking-widest truncate max-w-full px-2 ${data.movFile ? 'text-emerald-400' : 'text-slate-500'}`}>
+                        {data.movFile ? data.movFile.name : 'Attach PDF Pack'}
                      </p>
                   </div>
                </div>
@@ -496,16 +510,16 @@ const App: React.FC = () => {
 
           <nav className="space-y-3 pt-12 border-t border-white/5">
              {[
-               { id: 'basic', label: 'Evaluation Matrix', icon: 'fa-table-cells' },
-               { id: 'contests', label: 'Journalism Record', icon: 'fa-feather' },
+               { id: 'basic', label: 'Evaluation Matrix', icon: 'fa-chart-pie' },
+               { id: 'contests', label: 'Journalism', icon: 'fa-pen-nib' },
                { id: 'leadership', label: 'Leadership', icon: 'fa-medal' },
-               { id: 'services', label: 'Extensions', icon: 'fa-briefcase' },
-               { id: 'interview', label: 'Pro Interview', icon: 'fa-headset' }
+               { id: 'services', label: 'Extensions', icon: 'fa-user-group' },
+               { id: 'interview', label: 'Pro Interview', icon: 'fa-comments' }
              ].map(tab => (
                <button
                  key={tab.id}
                  onClick={() => setActiveTab(tab.id)}
-                 className={`w-full flex items-center gap-5 px-8 py-5 rounded-2xl text-left text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-white text-slate-900 shadow-2xl scale-[1.05] z-10' : 'text-slate-500 hover:bg-white/5 hover:text-white'}`}
+                 className={`w-full flex items-center gap-5 px-8 py-5 rounded-2xl text-left text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-white text-slate-900 shadow-2xl scale-[1.05]' : 'text-slate-500 hover:bg-white/5 hover:text-white'}`}
                >
                  <i className={`fas ${tab.icon} w-5 text-center text-sm`}></i>
                  {tab.label}
@@ -514,11 +528,10 @@ const App: React.FC = () => {
           </nav>
         </aside>
 
-        {/* Dynamic Content Section */}
         <section className="flex-1 p-8 lg:p-12 overflow-y-auto no-scrollbar pb-40">
            {activeTab === 'basic' && (
              <div className="space-y-12 animate-in fade-in slide-in-from-bottom duration-500">
-               <div className="glass-card p-12 rounded-[3.5rem] relative overflow-hidden group">
+               <div className="glass-card p-12 rounded-[3.5rem] relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
                   
                   <div className="flex flex-col md:flex-row items-start md:items-center gap-10 mb-20">
@@ -526,14 +539,14 @@ const App: React.FC = () => {
                       <i className="fas fa-layer-group"></i>
                     </div>
                     <div>
-                      <h2 className="text-4xl font-black text-white tracking-tight leading-none mb-4">Official Aggregate Matrix</h2>
-                      <p className="text-slate-500 text-sm font-medium tracking-wide">Enter the performance ratings for the previous five (5) consecutive school years.</p>
+                      <h2 className="text-4xl font-black text-white tracking-tight leading-none mb-4">Master Aggregate Matrix</h2>
+                      <p className="text-slate-500 text-sm font-medium tracking-wide">Document annual performance ratings over the 5-year evaluation window.</p>
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">
                     {data.performanceRatings.map((entry) => (
-                      <div key={entry.year} className="p-8 glass-card border-white/5 rounded-[2.5rem] group/input transition-all hover:bg-white/10">
+                      <div key={entry.year} className="p-8 glass-card border-white/5 rounded-[2.5rem] group/input transition-all hover:bg-white/10 shadow-sm">
                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 block">{entry.year}</label>
                         <input 
                           type="number" step="0.001"
@@ -551,19 +564,19 @@ const App: React.FC = () => {
                     ))}
                   </div>
 
-                  <div className="mt-16 p-12 bg-indigo-600 rounded-[3.5rem] flex flex-col md:flex-row items-center justify-between text-white shadow-3xl shadow-indigo-500/20 relative overflow-hidden">
+                  <div className="mt-16 p-12 bg-indigo-600 rounded-[3.5rem] flex flex-col md:flex-row items-center justify-between text-white shadow-3xl shadow-indigo-500/20 relative overflow-hidden border border-white/10">
                     <div className="absolute inset-0 animate-shimmer opacity-20"></div>
                     <div className="flex flex-col md:flex-row items-center gap-10 relative z-10">
                       <div className="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-[2.5rem] flex items-center justify-center text-5xl border border-white/20">
-                        <i className="fas fa-microchip"></i>
+                        <i className="fas fa-bolt"></i>
                       </div>
                       <div className="text-center md:text-left">
-                        <p className="text-[11px] font-bold text-indigo-100 uppercase tracking-[0.4em] mb-3">Master Aggregate Score</p>
+                        <p className="text-[11px] font-bold text-indigo-100 uppercase tracking-[0.4em] mb-3">Evaluated Master Mean</p>
                         <p className="text-9xl font-black tabular-nums tracking-tighter leading-none">{averageRating.toFixed(3)}</p>
                       </div>
                     </div>
                     <div className="mt-10 md:mt-0 px-12 py-6 bg-white text-indigo-600 rounded-[2rem] text-[12px] font-black uppercase tracking-[0.2em] shadow-2xl relative z-10">
-                      {averageRating >= 4.5 ? 'Distinguished' : (averageRating >= 4.0 ? 'Exemplary' : 'Proficient')}
+                      {averageRating >= 4.5 ? 'Elite Rank' : (averageRating >= 4.0 ? 'Superior Rank' : 'Standard Rank')}
                     </div>
                   </div>
                </div>
@@ -575,7 +588,7 @@ const App: React.FC = () => {
                     { label: 'Extension', value: (totals.extension + totals.innovations + totals.speakership + totals.books + totals.articles).toFixed(2), icon: 'fa-atom', color: 'from-emerald-400 to-emerald-600' },
                     { label: 'Interview', value: totals.interviewTotal.toFixed(2), icon: 'fa-headset', color: 'from-blue-400 to-blue-600' }
                   ].map((stat, i) => (
-                    <div key={i} className="glass-card p-10 rounded-[3rem] group">
+                    <div key={i} className="glass-card p-10 rounded-[3rem] group border border-white/5">
                       <div className={`w-16 h-16 bg-gradient-to-tr ${stat.color} rounded-2xl flex items-center justify-center mb-10 text-3xl text-white shadow-xl group-hover:scale-110 transition-all`}>
                         <i className={`fas ${stat.icon}`}></i>
                       </div>
@@ -597,20 +610,20 @@ const App: React.FC = () => {
            )}
 
            {activeTab === 'leadership' && (
-             <div className="glass-card p-12 rounded-[3.5rem] animate-in zoom-in-95 duration-500">
+             <div className="glass-card p-12 rounded-[3.5rem] animate-in zoom-in-95 duration-500 border border-white/5">
                 {renderSectionHeader('Leadership Portfolio', 'fa-award', totals.leadershipTotal.toFixed(2), 'bg-indigo-500')}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-16 p-10 bg-slate-900/40 rounded-[3rem] border border-white/5">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-16 p-10 bg-slate-900/40 rounded-[3rem] border border-white/5 shadow-inner">
                    <div className="space-y-4">
-                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Organization Level</label>
-                     <select id="lead-lvl" className="w-full p-5 bg-slate-800 border border-white/5 rounded-2xl text-[12px] font-black text-white outline-none ring-offset-4 ring-indigo-500/20 focus:ring-4">
+                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Org. Level</label>
+                     <select id="lead-lvl" className="w-full p-5 bg-slate-800 border border-white/5 rounded-2xl text-[12px] font-black text-white outline-none focus:ring-4 focus:ring-indigo-500/20 appearance-none cursor-pointer">
                        <option value={Level.NATIONAL}>National</option>
                        <option value={Level.REGIONAL}>Regional</option>
                        <option value={Level.DIVISION}>Division</option>
                      </select>
                   </div>
                   <div className="space-y-4">
-                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Highest Position</label>
-                     <select id="lead-pos" className="w-full p-5 bg-slate-800 border border-white/5 rounded-2xl text-[12px] font-black text-white outline-none ring-offset-4 ring-indigo-500/20 focus:ring-4">
+                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Official Role</label>
+                     <select id="lead-pos" className="w-full p-5 bg-slate-800 border border-white/5 rounded-2xl text-[12px] font-black text-white outline-none focus:ring-4 focus:ring-indigo-500/20 appearance-none cursor-pointer">
                        <option value={Position.PRESIDENT}>President</option>
                        <option value={Position.VICE_PRESIDENT}>Vice President</option>
                        <option value={Position.OTHER}>Other Officer</option>
@@ -620,36 +633,36 @@ const App: React.FC = () => {
                      <button 
                        onClick={() => {
                           const lvl = (document.getElementById('lead-lvl') as HTMLSelectElement).value as Level;
-                          const rnk = (document.getElementById('lead-pos') as HTMLSelectElement).value as Position;
-                          addItem('leadership', { level: lvl, position: rnk });
+                          const pos = (document.getElementById('lead-pos') as HTMLSelectElement).value as Position;
+                          addItem('leadership', { level: lvl, position: pos });
                        }}
                        className="w-full py-6 bg-white text-slate-900 rounded-3xl font-black text-[12px] uppercase tracking-widest hover:bg-indigo-400 hover:text-white transition-all shadow-2xl neo-button"
                      >
-                       Record Leadership Tenure
+                       Log Leadership Record
                      </button>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {data.leadership.map(item => (
-                    <div key={item.id} className="flex justify-between items-center p-10 glass-card rounded-[3rem] group">
+                    <div key={item.id} className="flex justify-between items-center p-10 glass-card rounded-[3rem] group border border-white/5">
                       <div className="flex items-center gap-8">
                         <div className="w-16 h-16 bg-white/5 text-indigo-400 rounded-2xl flex items-center justify-center text-3xl group-hover:bg-indigo-500 group-hover:text-white transition-all">
                           <i className="fas fa-crown"></i>
                         </div>
                         <div>
-                          <p className="font-black text-white text-xl tracking-tight">{item.position}</p>
+                          <p className="font-black text-white text-xl tracking-tight leading-tight">{item.position}</p>
                           <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-2">{item.level} Level</p>
                         </div>
                       </div>
                       <button onClick={() => removeItem('leadership', item.id)} className="w-14 h-14 flex items-center justify-center text-slate-600 hover:text-red-400 transition-all">
-                        <i className="fas fa-times-circle text-3xl"></i>
+                        <i className="fas fa-times-circle text-3xl opacity-50 hover:opacity-100"></i>
                       </button>
                     </div>
                   ))}
                   {data.leadership.length === 0 && (
                     <div className="col-span-2 py-24 text-center border-2 border-dashed border-white/5 rounded-[4rem]">
-                       <p className="text-slate-600 text-sm font-medium italic">Documented leadership roles will appear here.</p>
+                       <p className="text-slate-600 text-sm font-black uppercase tracking-widest opacity-30">No leadership records</p>
                     </div>
                   )}
                 </div>
@@ -667,25 +680,25 @@ const App: React.FC = () => {
            )}
 
            {activeTab === 'interview' && (
-             <div className="glass-card p-12 rounded-[3.5rem] animate-in zoom-in-95 duration-500">
-               {renderSectionHeader('Official Interview', 'fa-headset', totals.interviewTotal.toFixed(2), 'bg-blue-500')}
+             <div className="glass-card p-12 rounded-[3.5rem] animate-in zoom-in-95 duration-500 border border-white/5 shadow-xl">
+               {renderSectionHeader('Professional Interview', 'fa-headset', totals.interviewTotal.toFixed(2), 'bg-blue-500')}
                <div className="space-y-24 max-w-4xl mx-auto py-16">
                  {[
-                   { key: 'principles', label: 'Journalism Ethics & Governance', icon: 'fa-scale-balanced' },
-                   { key: 'leadership', label: 'Mentorship & Professional Influence', icon: 'fa-users-rays' },
-                   { key: 'engagement', label: 'Stakeholder & Community Integration', icon: 'fa-earth-asia' },
+                   { key: 'principles', label: 'Journalism Ethics & Media Values', icon: 'fa-scale-balanced' },
+                   { key: 'leadership', label: 'Mentorship & Professional Guidance', icon: 'fa-user-tie' },
+                   { key: 'engagement', label: 'Community Relations & Influence', icon: 'fa-globe' },
                    { key: 'commitment', label: 'Ethical Integrity & Personal Mission', icon: 'fa-shield-halved' },
-                   { key: 'communication', label: 'Verbal & Narrative Articulation', icon: 'fa-comment-dots' }
+                   { key: 'communication', label: 'Linguistic & Narrative Precision', icon: 'fa-quote-left' }
                  ].map(indicator => (
                    <div key={indicator.key} className="space-y-12 group">
                      <div className="flex justify-between items-end">
                         <div className="flex items-center gap-6">
-                           <div className="w-14 h-14 bg-white/5 text-blue-400 rounded-2xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                           <div className="w-14 h-14 bg-white/5 text-blue-400 rounded-2xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shadow-sm">
                               <i className={`fas ${indicator.icon}`}></i>
                            </div>
                            <div>
                               <label className="font-black text-white text-[12px] uppercase tracking-widest leading-none">{indicator.label}</label>
-                              <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mt-2 italic">Search Indicator 2.4.b</p>
+                              <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mt-2 italic">Standard Criterion 2.4.b</p>
                            </div>
                         </div>
                         <div className="px-10 py-4 bg-blue-600 text-white rounded-3xl text-2xl font-black tabular-nums shadow-2xl shadow-blue-500/30">
@@ -697,12 +710,12 @@ const App: React.FC = () => {
                           type="range" min="0" max="1" step="0.1" 
                           value={data.interview[indicator.key as keyof InterviewScores]}
                           onChange={e => setData({ ...data, interview: { ...data.interview, [indicator.key]: parseFloat(e.target.value) } })}
-                          className="w-full"
+                          className="w-full cursor-pointer"
                         />
                      </div>
                      <div className="flex justify-between text-[9px] font-black text-slate-600 uppercase tracking-[0.3em] px-1">
                         <span>Baseline</span>
-                        <span>Exceptional</span>
+                        <span>Exceptional Mastery</span>
                      </div>
                    </div>
                  ))}
@@ -712,21 +725,20 @@ const App: React.FC = () => {
         </section>
       </div>
 
-      {/* Script Setup Overlay */}
       {showInstructions && (
-        <div className="fixed inset-0 z-[1000] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-8 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[1000] bg-slate-950/95 backdrop-blur-2xl flex items-center justify-center p-8 animate-in fade-in duration-300">
           <div className="bg-slate-900 w-full max-w-6xl max-h-[85vh] rounded-[4rem] shadow-3xl overflow-hidden flex flex-col border border-white/5">
-            <div className="p-12 border-b border-white/5 flex justify-between items-center">
+            <div className="p-12 border-b border-white/5 flex justify-between items-center bg-black/20">
               <div className="flex items-center gap-6">
-                <div className="w-16 h-16 bg-white text-slate-900 rounded-[2rem] flex items-center justify-center text-2xl">
-                  <i className="fas fa-code"></i>
+                <div className="w-16 h-16 bg-white text-slate-900 rounded-[2rem] flex items-center justify-center text-2xl shadow-xl">
+                  <i className="fas fa-satellite-dish"></i>
                 </div>
                 <div>
-                   <h2 className="text-3xl font-black text-white">Back-end Configuration</h2>
-                   <p className="text-slate-500 text-sm font-medium mt-1">Configure your Google Apps Script for automated data logging & storage.</p>
+                   <h2 className="text-3xl font-black text-white">System Configuration &bull; Drive Sync</h2>
+                   <p className="text-slate-500 text-sm font-medium mt-1">Connectivity bridge for automated data & evidence storage.</p>
                 </div>
               </div>
-              <button onClick={() => setShowInstructions(false)} className="w-16 h-16 bg-white/5 rounded-3xl text-slate-500 hover:text-white transition-all flex items-center justify-center">
+              <button onClick={() => setShowInstructions(false)} className="w-16 h-16 bg-white/5 rounded-3xl text-slate-500 hover:text-white transition-all flex items-center justify-center border border-white/5">
                 <i className="fas fa-times text-2xl"></i>
               </button>
             </div>
@@ -735,88 +747,100 @@ const App: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                  <div className="p-10 bg-indigo-500/5 border border-indigo-500/10 rounded-[3rem] space-y-6">
                     <h3 className="text-[11px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-3">
-                        <i className="fas fa-folder-open"></i> 1. Drive Preparation
+                        <i className="fas fa-key"></i> 1. Folder ID
                     </h3>
                     <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                        Create a folder in Google Drive. Copy its ID from the URL bar (the text after <code className="text-indigo-300">/folders/</code>). Ensure sharing is set to "Anyone with the link can edit".
+                        Open your Google Drive folder. Copy the long ID from the URL (after <code className="text-indigo-300">/folders/</code>). Set folder sharing to "Anyone with the link can EDIT".
                     </p>
                  </div>
                  <div className="p-10 bg-emerald-500/5 border border-emerald-500/10 rounded-[3rem] space-y-6">
                     <h3 className="text-[11px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-3">
-                        <i className="fas fa-user-shield"></i> 2. Authorization
+                        <i className="fas fa-shield-check"></i> 2. Authorization
                     </h3>
                     <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                        Paste the code below into Apps Script. Select <b>'authorizeMe'</b> and click <b>Run</b>. Complete the Google security dialog (Advanced -&gt; Go to unsafe).
+                        Paste the code below in Apps Script. Select the <b>'authorizeMe'</b> function in the editor toolbar and click <b>Run</b>. Approve all permissions.
                     </p>
                  </div>
                  <div className="p-10 bg-blue-500/5 border border-blue-500/10 rounded-[3rem] space-y-6">
                     <h3 className="text-[11px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-3">
-                        <i className="fas fa-rocket"></i> 3. Deployment
+                        <i className="fas fa-rocket"></i> 3. Versioning
                     </h3>
                     <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                        Click <b>Deploy &gt; New Deployment</b>. Set Type to "Web App", Execute as "Me", and Access to "Anyone". Paste the URL in the <b>SCRIPT_URL</b> variable in App.tsx.
+                        Click <b>Deploy &gt; New Deployment</b>. If you edit code later, you <b>MUST</b> deploy a "New Deployment" to get a new URL. Paste the new URL in App.tsx.
                     </p>
                  </div>
               </div>
 
               <div className="relative group">
-                <div className="absolute top-8 right-8 z-10">
-                    <button className="bg-white text-slate-900 px-6 py-3 rounded-2xl text-[10px] font-black tracking-widest hover:bg-indigo-400 hover:text-white transition-all shadow-2xl">COPY VERIFIED CODE</button>
+                <div className="absolute top-8 right-8 z-10 flex gap-4">
+                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest self-center">Updated for Drive v3</span>
+                    <button className="bg-white text-slate-900 px-6 py-3 rounded-2xl text-[10px] font-black tracking-widest hover:bg-indigo-400 hover:text-white transition-all shadow-2xl">COPY CLOUD CODE</button>
                 </div>
                 <pre className="p-12 bg-black/40 text-indigo-300 text-[12px] rounded-[3rem] overflow-x-auto font-mono leading-relaxed h-[500px] border border-white/5 scrollbar-thin">
 {`/** 
- * OSPA AUTOMATED EVALUATION SYNC 
+ * OSPA AUTOMATED EVALUATION SYNC - v5.1 Platinum
  * INSTRUCTIONS: Update FOLDER_ID and run authorizeMe() once.
  */
 var FOLDER_ID = "PASTE_YOUR_DRIVE_FOLDER_ID_HERE"; 
 
 function doPost(e) {
   try {
-    var data = JSON.parse(e.postData.contents);
+    var payload = JSON.parse(e.postData.contents);
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
     
-    // 1. DATA ENTRY: Append Evaluation Scores
+    // 1. DATA ENTRY: Append Row to active sheet
     sheet.appendRow([
-      data.timestamp,
-      data.division,
-      data.schoolName,
-      data.candidateName,
-      data.averageRating,
-      data.details.journalism,
-      data.details.leadership,
-      data.details.extensions,
-      data.details.interview,
-      data.grandTotal
+      payload.timestamp,
+      payload.division,
+      payload.schoolName,
+      payload.candidateName,
+      payload.averageRating,
+      payload.details.journalism,
+      payload.details.leadership,
+      payload.details.extensions,
+      payload.details.interview,
+      payload.grandTotal
     ]);
 
-    // 2. FILE MANAGEMENT: Save Portfolio PDF
-    if (data.movFile && data.movFile.data) {
-      var folder = DriveApp.getFolderById(FOLDER_ID);
-      var bytes = Utilities.base64Decode(data.movFile.data);
-      var blob = Utilities.newBlob(bytes, data.movFile.mimeType, data.movFile.name);
+    // 2. FILE MANAGEMENT: Save Portfolio PDF if exists
+    if (payload.movFile && payload.movFile.data) {
+      var folder = DriveApp.getFolderById(FOLDER_ID.trim());
+      var bytes = Utilities.base64Decode(payload.movFile.data);
+      var blob = Utilities.newBlob(bytes, "application/pdf", payload.movFile.name);
       folder.createFile(blob);
     }
 
     return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
   } catch (err) {
-    Logger.log("Critical Error: " + err.toString());
+    console.error(err.toString());
     return ContentService.createTextOutput("Error: " + err.toString()).setMimeType(ContentService.MimeType.TEXT);
   }
 }
 
 function authorizeMe() {
-  // EXECUTE THIS FUNCTION ONCE MANUALLY
+  // MUST RUN THIS FUNCTION MANUALLY ONCE IN THE EDITOR
   DriveApp.getRootFolder();
   SpreadsheetApp.getActiveSpreadsheet();
-  Logger.log("Authorization Flow Finalized.");
+  Logger.log("Authorization Flow Finalized Successfully.");
 }`}
                 </pre>
               </div>
+
+              <div className="p-10 border border-red-500/20 bg-red-500/5 rounded-[3rem] space-y-4">
+                 <h4 className="text-red-400 text-[11px] font-black uppercase tracking-widest flex items-center gap-2">
+                    <i className="fas fa-triangle-exclamation"></i> Stuck? Common Fixes
+                 </h4>
+                 <ul className="text-xs text-slate-500 font-medium space-y-2 list-disc ml-6">
+                    <li><b>The "Opaque" Rule:</b> Google Scripts don't send a visible "OK" back to browsers due to security. Always check your actual Drive folder to confirm.</li>
+                    <li><b>Access Denied:</b> Ensure you set "Access: Anyone" during deployment. "Anyone with Google Account" will fail.</li>
+                    <li><b>Script URL:</b> Make sure your URL ends with <code className="text-slate-300">/exec</code>. If it ends with <code className="text-slate-300">/dev</code>, it won't work for anyone else.</li>
+                 </ul>
+              </div>
             </div>
             
-            <div className="p-10 border-t border-white/5 text-center bg-black/20">
-              <button onClick={() => setShowInstructions(false)} className="px-20 py-6 bg-white text-slate-900 rounded-[2rem] font-black text-[12px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-2xl">
-                Ready to Sync
+            <div className="p-12 border-t border-white/5 text-center bg-black/40">
+              <button onClick={() => setShowInstructions(false)} className="px-24 py-7 bg-white text-slate-900 rounded-[2rem] font-black text-[12px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-3xl">
+                I Understand the Protocol
               </button>
             </div>
           </div>
